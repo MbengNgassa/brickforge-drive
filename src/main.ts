@@ -222,8 +222,8 @@ class BrickForgeApp {
 
           <div class="hud-right-stack">
             <div class="panel hud-actions interactive">
-              <button id="hud-btn-cam" class="btn" title="Switch Camera (C)">🎥 Cam</button>
-              <button id="hud-btn-reset" class="btn" title="Reset Vehicle (R)">⟲ Reset</button>
+              <button id="hud-btn-cam" class="btn" title="Switch Camera (C)">🎥 Chase</button>
+              <button id="hud-btn-reset" class="btn" title="Reset Vehicle (R)">⟲</button>
               <button id="hud-btn-settings" class="btn btn-icon" title="Settings">⚙</button>
               <button id="hud-btn-garage" class="btn btn-primary" title="Back to Garage">🔧 Garage</button>
             </div>
@@ -234,9 +234,12 @@ class BrickForgeApp {
           </div>
         </div>
 
+        <!-- Compact non-blocking top toast for stunts / KOs / repairs -->
+        <div id="event-banner" class="event-banner hidden"></div>
+
+        <!-- Pre-race 3-2-1 countdown only -->
         <div class="hud-center">
           <div id="countdown-num" class="countdown-num hidden"></div>
-          <div id="event-banner" class="event-banner hidden"></div>
         </div>
 
         <div class="hud-bottom">
@@ -1225,6 +1228,7 @@ class BrickForgeApp {
       bannerEl.classList.add('hidden');
     }
 
+    document.getElementById('hud-btn-cam')!.textContent = `🎥 ${this.world.getCameraLabel()}`;
     document.getElementById('fps-pill')!.textContent = `${hud.fps} FPS • ${this.engine.getQuality().toUpperCase()} GPU`;
 
     if (hud.finished && !this.finishModalShown) {

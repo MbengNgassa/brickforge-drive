@@ -197,12 +197,8 @@ export class GameWorldController {
       this.spawnArenaVehicles(scene, mode === 'freeroam');
     }
 
-    // Initialize camera smoothly behind player
-    const fwd = this.player.getForwardVector();
-    this.camPosCurrent.copy(this.player.position).addScaledVector(fwd, -13).add(new THREE.Vector3(0, 6.2, 0));
-    this.camLookCurrent.copy(this.player.position).add(new THREE.Vector3(0, 1.5, 0));
-    this.engine.camera.position.copy(this.camPosCurrent);
-    this.engine.camera.lookAt(this.camLookCurrent);
+    // Initialize camera cleanly behind player using exact vehicle bounds
+    this.updateCamera(0.016, true);
 
     this.bindEvents();
     sound.startDrivingAudio();
@@ -225,6 +221,9 @@ export class GameWorldController {
 
   public cycleCamera(): void {
     this.cameraMode = (this.cameraMode + 1) % 3;
+    if (this.player) {
+      this.updateCamera(0.016, true);
+    }
     sound.playUiTick();
   }
 
@@ -1414,9 +1413,13 @@ export class GameWorldController {
     }
   }
 
+  public getCameraLabel(): string {
+    return ['Chase', 'Wide', 'Hood'][this.cameraMode] || 'Chase';
+  }
+
   private showBanner(text: string): void {
     this.eventBanner = text;
-    this.eventBannerTimer = 2.4;
+    this.eventBannerTimer = 1.55;
   }
 
   private getPlayerRacePosition(): number {
@@ -1428,45 +1431,87 @@ export class GameWorldController {
     return rank;
   }
 
-  private updateCamera(dt: number): void {
+  private updateCamera(dt: number, snap = false): void {
     const cam = this.engine.camera;
     const fwd = this.player.getForwardVector();
-    const speedRatio = Math.min(1, this.player.getSpeed() / 55);
+    const speedRatio = Math.min(1, this.player.getSpeed() / 68);
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const roofY = this.player.roofY;
+    const frontZ = this.player.frontZ;
 
-    // Dynamic FOV warp when firing plasma thrusters (like Screenshot 3!)
-    const targetFov = this.player.isBoosting ? 74 : 58 + speedRatio * 7;
-    cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, dt * 6);
+    // Dynamic FOV warp when firing plasma thrusters
+    const baseFov = this.cameraMode === 2 ? 70 : isLandscape ? 60 : 66;
+    const targetFov = this.player.isBoosting ? baseFov + 12 : baseFov + speedRatio * 6;
+    cam.fov = snap ? targetFov : THREE.MathUtils.lerp(cam.fov, targetFov, dt * 6);
     cam.updateProjectionMatrix();
 
-    let dist = 12.2;
-    let height = 5.4;
-    let lookAhead = 5.5;
-    if (this.cameraMode === 1) {
-      dist = 8.4;
-      height = 3.5;
-      lookAhead = 8.0;
-    } else if (this.cameraMode === 2) {
-      dist = 18.5;
-      height = 12.5;
-      lookAhead = 3.5;
+    let desiredPos: THREE.Vector3;
+    let desiredLook: THREE.Vector3;
+
+    if (this.cameraMode === 2) {
+      // HOOD / BUMPER CAM — mounted cleanly just ahead of frontZ so zero bricks/horns/turrets ever block the lens!
+      const hoodY = Math.max(2.3, Math.min(roofY * 0.72, 3.8));
+      desiredPos = this.player.position
+        .clone()
+        .addScaledVector(fwd, frontZ + 0.35)
+        .add(new THREE.Vector3(0, hoodY, 0));
+      desiredLook = this.player.position
+        .clone()
+        .addScaledVector(fwd, 36)
+        .add(new THREE.Vector3(0, Math.max(1.8, hoodY - 0.55), 0));
+      if (snap) {
+        this.camPosCurrent.copy(desiredPos);
+        this.camLookCurrent.copy(desiredLook);
+      } else {
+        this.camPosCurrent.lerp(desiredPos, Math.min(1, dt * 24));
+        this.camLookCurrent.lerp(desiredLook, Math.min(1, dt * 26));
+      }
+    } else {
+      // Camera 0: Hero Chase | Camera 1: Wide Arena Overview — always clears the tallest roof!
+      const isWide = this.cameraMode === 1;
+      const dist = isWide
+        ? Math.max(21.5, frontZ * 4.0 + 9.5)
+        : Math.max(14.8, frontZ * 3.0 + 6.5);
+      const height = isWide
+        ? Math.max(10.2, roofY + 5.8)
+        : Math.max(6.4, roofY + 2.8);
+      const lookAhead = isWide ? 18.0 : 14.5;
+      const lookY = isWide ? 2.0 : Math.max(2.1, roofY * 0.55);
+
+      desiredPos = this.player.position
+        .clone()
+        .addScaledVector(fwd, -dist)
+        .add(new THREE.Vector3(0, height, 0));
+
+      // Keep camera safely inside stadium walls in Derby / Family / Stunt Park!
+      if (this.mode !== 'race') {
+        const camDist = Math.hypot(desiredPos.x, desiredPos.z);
+        const maxCamR = ARENA_RADIUS - 3.5;
+        if (camDist > maxCamR) {
+          desiredPos.x = (desiredPos.x / camDist) * maxCamR;
+          desiredPos.z = (desiredPos.z / camDist) * maxCamR;
+          desiredPos.y = Math.max(desiredPos.y, height + 2.5);
+        }
+      }
+
+      desiredLook = this.player.position
+        .clone()
+        .addScaledVector(fwd, lookAhead)
+        .add(new THREE.Vector3(0, lookY, 0));
+
+      if (snap) {
+        this.camPosCurrent.copy(desiredPos);
+        this.camLookCurrent.copy(desiredLook);
+      } else {
+        this.camPosCurrent.lerp(desiredPos, Math.min(1, dt * 8.5));
+        this.camLookCurrent.lerp(desiredLook, Math.min(1, dt * 12));
+      }
     }
-
-    const desiredPos = this.player.position
-      .clone()
-      .addScaledVector(fwd, -dist)
-      .add(new THREE.Vector3(0, height, 0));
-    const desiredLook = this.player.position
-      .clone()
-      .addScaledVector(fwd, lookAhead)
-      .add(new THREE.Vector3(0, 1.5, 0));
-
-    this.camPosCurrent.lerp(desiredPos, Math.min(1, dt * 7.5));
-    this.camLookCurrent.lerp(desiredLook, Math.min(1, dt * 11));
 
     // Apply impact camera shake
     if (this.cameraShake > 0.01) {
-      this.cameraShake = Math.max(0, this.cameraShake - dt * 2.8);
-      const mag = this.cameraShake * 0.75;
+      this.cameraShake = Math.max(0, this.cameraShake - dt * 3.0);
+      const mag = this.cameraShake * 0.65;
       cam.position.set(
         this.camPosCurrent.x + (Math.random() - 0.5) * mag,
         this.camPosCurrent.y + (Math.random() - 0.5) * mag,

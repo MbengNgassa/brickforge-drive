@@ -214,6 +214,8 @@ export class DriveVehicle {
   public vy = 0;
   public grounded = true;
   public radius = 2.6;
+  public frontZ = 2.6;
+  public roofY = 3.0;
 
   public boost = 100;
   public isBoosting = false;
@@ -267,7 +269,7 @@ export class DriveVehicle {
 
     if (!isPlayer && nameplateColor) {
       this.nameplateSprite = this.createNameplate(name, nameplateColor);
-      this.nameplateSprite.position.set(0, 4.6, 0);
+      this.nameplateSprite.position.set(0, Math.max(4.6, this.roofY + 1.5), 0);
       this.root.add(this.nameplateSprite);
     }
   }
@@ -279,6 +281,7 @@ export class DriveVehicle {
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
     let minBottomY = Infinity;
+    let maxTopY = -Infinity;
 
     const centers = blueprint.bricks.map((b) => {
       const c = getBrickCenterWorld(b);
@@ -291,6 +294,7 @@ export class DriveVehicle {
       minZ = Math.min(minZ, c.z - halfZ);
       maxZ = Math.max(maxZ, c.z + halfZ);
       minBottomY = Math.min(minBottomY, c.y - halfY);
+      maxTopY = Math.max(maxTopY, c.y + halfY);
       return c;
     });
 
@@ -298,6 +302,8 @@ export class DriveVehicle {
     const cz = (minZ + maxZ) / 2;
     const liftY = -minBottomY + 0.04;
     this.radius = Math.min(4.2, Math.max(2.1, Math.max(maxX - minX, maxZ - minZ) * 0.42));
+    this.frontZ = Math.max(1.8, maxZ - cz);
+    this.roofY = Math.max(2.0, maxTopY + liftY);
 
     blueprint.bricks.forEach((brickData, i) => {
       const part = PARTS_MAP[brickData.partId];

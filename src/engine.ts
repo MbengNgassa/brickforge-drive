@@ -8,8 +8,8 @@ import type { GraphicsQuality } from './types';
 
 /**
  * Full-GPU WebGL2 Graphics Engine with PBR studio environment reflections,
- * dynamic shadows, ACES Filmic tone mapping, and selective UnrealBloom
- * for luminous jet thrusters, headlights, sparks, and boost pads.
+ * dynamic shadows, ACES Filmic tone mapping, and safe hardware-checked
+ * selective UnrealBloom for luminous jet thrusters and crash sparks.
  */
 export class GraphicsEngine {
   public readonly renderer: THREE.WebGLRenderer;
@@ -23,6 +23,8 @@ export class GraphicsEngine {
   private bloomPass: UnrealBloomPass | null = null;
   private quality: GraphicsQuality = 'ultra';
   private gpuName = 'Hardware WebGL2 GPU';
+  private supportsSafeBloom = false;
+  private bloomSceneEnabled = false;
 
   constructor(container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -34,7 +36,7 @@ export class GraphicsEngine {
 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMappingExposure = 0.96;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -44,22 +46,29 @@ export class GraphicsEngine {
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.15, 650);
+    this.camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.15, 650);
 
-    // Real PBR environment reflections so glossy ABS bricks gleam like toy plastic
+    // Real PBR environment reflections so glossy ABS bricks gleam cleanly without washing out
     this.pmrem = new THREE.PMREMGenerator(this.renderer);
     this.pmrem.compileEquirectangularShader();
     this.envRT = this.pmrem.fromScene(new RoomEnvironment(), 0.04);
     this.scene.environment = this.envRT.texture;
-    this.scene.environmentIntensity = 0.72;
+    this.scene.environmentIntensity = 0.52;
 
     this.detectGpuInfo();
+    this.checkBloomSafety();
 
-    // Load saved quality or default to 'ultra' to use the device's full graphics
     const saved = this.loadQuality();
     this.setQuality(saved);
 
     window.addEventListener('resize', this.handleResize);
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+    });
+  }
+
+  public setBloomEnabled(enabled: boolean): void {
+    this.bloomSceneEnabled = enabled;
   }
 
   private detectGpuInfo(): void {
@@ -74,6 +83,19 @@ export class GraphicsEngine {
       }
     } catch {
       // keep default
+    }
+  }
+
+  private checkBloomSafety(): void {
+    try {
+      const gl = this.renderer.getContext();
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const hasFloatRT =
+        Boolean(gl.getExtension('EXT_color_buffer_float')) ||
+        Boolean(gl.getExtension('EXT_color_buffer_half_float'));
+      this.supportsSafeBloom = !isMobile && this.renderer.capabilities.isWebGL2 && hasFloatRT;
+    } catch {
+      this.supportsSafeBloom = false;
     }
   }
 
@@ -107,7 +129,11 @@ export class GraphicsEngine {
     if (q === 'ultra') {
       this.renderer.setPixelRatio(Math.min(dpr, 2.0));
       this.renderer.shadowMap.enabled = true;
-      this.setupPostProcessing();
+      if (this.supportsSafeBloom) {
+        this.setupPostProcessing();
+      } else {
+        this.teardownPostProcessing();
+      }
     } else if (q === 'high') {
       this.renderer.setPixelRatio(Math.min(dpr, 1.65));
       this.renderer.shadowMap.enabled = true;
@@ -130,8 +156,10 @@ export class GraphicsEngine {
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.composer = new EffectComposer(this.renderer);
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
     this.renderPass = new RenderPass(this.scene, this.camera);
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.34, 0.55, 0.92);
+    // High luminance threshold (1.45) so ONLY emissive plasma thrusters, lights & sparks bloom — never normal bricks!
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.28, 0.38, 1.45);
     const outputPass = new OutputPass();
     this.composer.addPass(this.renderPass);
     this.composer.addPass(this.bloomPass);
@@ -161,6 +189,7 @@ export class GraphicsEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     if (this.composer) {
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
       this.composer.setSize(w, h);
     }
     if (this.bloomPass) {
@@ -169,7 +198,7 @@ export class GraphicsEngine {
   };
 
   public render(): void {
-    if (this.composer && this.quality === 'ultra') {
+    if (this.composer && this.quality === 'ultra' && this.supportsSafeBloom && this.bloomSceneEnabled) {
       this.composer.render();
     } else {
       this.renderer.render(this.scene, this.camera);

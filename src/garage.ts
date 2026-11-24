@@ -60,6 +60,7 @@ export class GarageController {
   private popAnimations: { group: THREE.Group; t: number }[] = [];
   private pulseTime = 0;
   private active = false;
+  public placedCountSession = 0;
 
   private onChange: () => void;
 
@@ -70,18 +71,19 @@ export class GarageController {
 
   public enter(blueprint: VehicleBlueprint): void {
     this.active = true;
+    this.engine.setBloomEnabled(false);
     this.engine.clearScene();
     const scene = this.engine.scene;
 
-    // Bright clean garage studio atmosphere (inspired by Screenshot 1)
-    scene.background = new THREE.Color(0x202733);
-    scene.fog = new THREE.Fog(0x202733, 38, 95);
+    // Clean mid-slate workshop studio atmosphere so every brick color pops sharply
+    scene.background = new THREE.Color(0x232d3b);
+    scene.fog = new THREE.Fog(0x232d3b, 48, 120);
 
-    // Studio 3-point lighting
-    const hemi = new THREE.HemisphereLight(0xf8fbff, 0x3b4454, 1.05);
+    // Balanced studio 3-point lighting (rich saturated ABS colors, crisp shadows, zero glare)
+    const hemi = new THREE.HemisphereLight(0xf1f5f9, 0x26303d, 0.72);
     scene.add(hemi);
 
-    const keyLight = new THREE.DirectionalLight(0xfff9f0, 2.0);
+    const keyLight = new THREE.DirectionalLight(0xfff9f0, 1.55);
     keyLight.position.set(14, 24, 16);
     keyLight.castShadow = true;
     const sm = this.engine.getShadowMapSize();
@@ -95,18 +97,18 @@ export class GarageController {
     keyLight.shadow.bias = -0.0005;
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x7cc4ff, 0.75);
-    rimLight.position.set(-14, 10, -14);
+    const rimLight = new THREE.DirectionalLight(0x7cc4ff, 0.55);
+    rimLight.position.set(-14, 11, -14);
     scene.add(rimLight);
 
-    // Glossy studio floor with tile texture
+    // Matte-satin studio floor with tile texture
     const floorTex = createGarageFloorTexture();
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(110, 110),
       new THREE.MeshStandardMaterial({
         map: floorTex,
-        roughness: 0.34,
-        metalness: 0.08,
+        roughness: 0.62,
+        metalness: 0.05,
       })
     );
     floor.rotation.x = -Math.PI / 2;
@@ -116,8 +118,8 @@ export class GarageController {
 
     // Turntable workshop ring
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(9.2, 9.65, 64),
-      new THREE.MeshBasicMaterial({ color: 0xf4be17, side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
+      new THREE.RingGeometry(8.8, 9.3, 64),
+      new THREE.MeshBasicMaterial({ color: 0xf4be17, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = -PLATE_HEIGHT * 1.36;
@@ -125,21 +127,21 @@ export class GarageController {
 
     // Front-direction chevron on the floor so builders always know which way is forward (+Z)
     const arrowShape = new THREE.Shape();
-    arrowShape.moveTo(0, 1.1);
-    arrowShape.lineTo(0.85, -0.4);
-    arrowShape.lineTo(0.32, -0.4);
-    arrowShape.lineTo(0.32, -1.0);
-    arrowShape.lineTo(-0.32, -1.0);
-    arrowShape.lineTo(-0.32, -0.4);
-    arrowShape.lineTo(-0.85, -0.4);
+    arrowShape.moveTo(0, 1.2);
+    arrowShape.lineTo(0.95, -0.45);
+    arrowShape.lineTo(0.36, -0.45);
+    arrowShape.lineTo(0.36, -1.1);
+    arrowShape.lineTo(-0.36, -1.1);
+    arrowShape.lineTo(-0.36, -0.45);
+    arrowShape.lineTo(-0.95, -0.45);
     arrowShape.closePath();
     const arrowGeo = new THREE.ShapeGeometry(arrowShape);
     arrowGeo.rotateX(Math.PI / 2);
     const arrow = new THREE.Mesh(
       arrowGeo,
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
     );
-    arrow.position.set(0, -PLATE_HEIGHT * 1.34, 8.2);
+    arrow.position.set(0, -PLATE_HEIGHT * 1.34, 7.6);
     scene.add(arrow);
 
     // Invisible stud-grid build floor at y=0 for placing base bricks
@@ -152,7 +154,7 @@ export class GarageController {
     scene.add(this.buildPlane);
 
     // Subtle build-bay stud grid lines at y=0
-    const grid = new THREE.GridHelper(20 * STUD_SIZE, 20, 0x475569, 0x334155);
+    const grid = new THREE.GridHelper(20 * STUD_SIZE, 20, 0x64748b, 0x475569);
     grid.position.y = -PLATE_HEIGHT * 1.33;
     scene.add(grid);
 
@@ -164,23 +166,61 @@ export class GarageController {
     this.snapBracketGroup.visible = false;
     scene.add(this.snapBracketGroup);
 
-    // Setup OrbitControls
+    // Setup OrbitControls with responsive portrait/landscape framing
     const cam = this.engine.camera;
-    cam.fov = 48;
-    cam.updateProjectionMatrix();
-    cam.position.set(10.5, 7.2, 11.2);
     this.controls = new OrbitControls(cam, this.engine.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.target.set(0, 1.4, 1.2);
-    this.controls.minDistance = 4.5;
-    this.controls.maxDistance = 28;
-    this.controls.maxPolarAngle = Math.PI * 0.485;
-    this.controls.update();
+    this.controls.minDistance = 5.0;
+    this.controls.maxDistance = 32;
+    this.controls.maxPolarAngle = Math.PI * 0.48;
+    // Gentle turntable rotation until the user touches or drags the vehicle
+    this.controls.autoRotate = true;
+    this.controls.autoRotateSpeed = 0.9;
 
     this.loadBricks(blueprint.bricks, false);
+    this.recenterCamera();
     this.rebuildGhostMesh();
+    this.showAutoPreview();
     this.bindEvents();
+  }
+
+  /**
+   * Automatically frames the entire 3D vehicle cleanly in the open viewport
+   * on both tall portrait mobile screens and wide desktop screens.
+   */
+  public recenterCamera(): void {
+    if (!this.controls) return;
+    const cam = this.engine.camera;
+    const isPortrait = window.innerHeight > window.innerWidth;
+
+    const box = new THREE.Box3();
+    if (this.vehicleGroup.children.length > 0) {
+      box.setFromObject(this.vehicleGroup);
+    } else {
+      box.set(new THREE.Vector3(-4, 0, -4), new THREE.Vector3(4, 3, 4));
+    }
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    box.getCenter(center);
+    box.getSize(size);
+
+    const maxDim = Math.max(size.x, size.y, size.z, 6.5);
+    cam.fov = isPortrait ? 50 : 46;
+    cam.updateProjectionMatrix();
+
+    // Shift look target slightly downward on portrait phones so the vehicle sits
+    // squarely in the wide-open upper-middle window above the bottom brick tray!
+    const yOffset = isPortrait ? -0.9 : -0.15;
+    this.controls.target.set(center.x, center.y + yOffset, center.z);
+
+    const dist = isPortrait ? maxDim * 1.62 : maxDim * 1.15;
+    cam.position.set(
+      center.x + dist * 0.72,
+      center.y + dist * (isPortrait ? 0.5 : 0.44),
+      center.z + dist * 0.78
+    );
+    this.controls.update();
   }
 
   public exit(): void {
@@ -215,6 +255,7 @@ export class GarageController {
     this.activePartId = partId;
     if (this.activeTool !== 'place') this.activeTool = 'place';
     this.rebuildGhostMesh();
+    this.showAutoPreview();
     sound.playUiTick();
     this.onChange();
   }
@@ -222,6 +263,7 @@ export class GarageController {
   public setColor(hex: string): void {
     this.activeColor = hex;
     this.rebuildGhostMesh();
+    if (this.activeTool === 'place') this.showAutoPreview();
     sound.playUiTick();
     this.onChange();
   }
@@ -231,6 +273,7 @@ export class GarageController {
     if (this.ghostGroup) this.ghostGroup.visible = false;
     this.snapBracketGroup.visible = false;
     this.clearHoverHighlight();
+    if (tool === 'place') this.showAutoPreview();
     sound.playUiTick();
     this.onChange();
   }
@@ -238,6 +281,7 @@ export class GarageController {
   public rotatePart(): void {
     this.activeRot = ((this.activeRot + 1) % 4) as 0 | 1 | 2 | 3;
     this.rebuildGhostMesh();
+    if (this.activeTool === 'place') this.showAutoPreview();
     sound.playUiTick();
     this.onChange();
   }
@@ -247,6 +291,68 @@ export class GarageController {
     sound.playUiTick();
     this.onChange();
     return this.mirrorX;
+  }
+
+  /**
+   * Automatically snaps the glowing green ghost brick to an open stud spot on top of
+   * the vehicle so mobile/touch users immediately see the selected brick and where it fits!
+   */
+  public showAutoPreview(): void {
+    if (!this.active || this.activeTool !== 'place' || !this.ghostGroup) return;
+    const part = PARTS_MAP[this.activePartId];
+    const dims = getRotatedDims(part, this.activeRot);
+
+    const trySpots: [number, number, number][] = [];
+    if (part.isWheel) {
+      trySpots.push([-4, -1, 1], [2, -1, 1], [-4, -1, 5], [2, -1, 5], [-4, -1, -3], [2, -1, -3]);
+    } else if (part.isThruster) {
+      trySpots.push([-1, 2, -6], [-2, 2, -6], [0, 2, -6], [-1, 4, -5]);
+    } else {
+      const startGx = -Math.floor(dims.w / 2);
+      const zSearch = [3, 1, 5, -1, -3, 0, 2, 4, -2];
+      for (const gz of zSearch) {
+        for (let gy = 1; gy <= 12; gy++) {
+          trySpots.push([startGx, gy, gz]);
+        }
+      }
+    }
+
+    for (const [gx, gy, gz] of trySpots) {
+      if (this.isPlacementValid(this.activePartId, gx, gy, gz, this.activeRot)) {
+        this.applyCandidatePreview(gx, gy, gz, true);
+        return;
+      }
+    }
+  }
+
+  private applyCandidatePreview(gx: number, gy: number, gz: number, valid: boolean): void {
+    if (!this.ghostGroup) return;
+    const part = PARTS_MAP[this.activePartId];
+    const dims = getRotatedDims(part, this.activeRot);
+    this.lastCandidate = { gx, gy, gz, valid };
+
+    const cx = (gx + dims.w / 2) * STUD_SIZE;
+    const cy = (gy + dims.h / 2) * PLATE_HEIGHT;
+    const cz = (gz + dims.d / 2) * STUD_SIZE;
+
+    this.ghostGroup.position.set(cx, cy, cz);
+    this.ghostGroup.visible = true;
+
+    this.snapBracketGroup.position.set(cx, cy, cz);
+    this.snapBracketGroup.visible = true;
+    this.setBracketsValid(valid);
+  }
+
+  /** Snaps the currently previewed ghost brick directly onto the car (1-tap friendly on mobile!) */
+  public placeCurrentPreview(): boolean {
+    if (this.activeTool !== 'place') return false;
+    if (!this.lastCandidate || !this.lastCandidate.valid) {
+      this.showAutoPreview();
+    }
+    if (!this.lastCandidate || !this.lastCandidate.valid) return false;
+    this.commitCandidate(this.lastCandidate);
+    this.showAutoPreview();
+    return true;
   }
 
   public canUndo(): boolean {
@@ -586,46 +692,51 @@ export class GarageController {
 
     // Place tool
     if (this.lastCandidate && this.lastCandidate.valid) {
-      this.pushUndo();
-      const { gx, gy, gz } = this.lastCandidate;
-      const placed: PlacedBrick = {
-        uid: makeUid('u'),
-        partId: this.activePartId,
-        gx,
-        gy,
-        gz,
-        rot: this.activeRot,
-        color: this.activeColor,
-      };
-      this.bricks.push(placed);
-      this.addBrickVisual(placed, true);
-
-      // Optional X-axis symmetry mirror placement!
-      if (this.mirrorX) {
-        const part = PARTS_MAP[this.activePartId];
-        const dims = getRotatedDims(part, this.activeRot);
-        const mirrorGx = -(gx + dims.w);
-        if (mirrorGx !== gx && this.isPlacementValid(this.activePartId, mirrorGx, gy, gz, this.activeRot)) {
-          const mirrorBrick: PlacedBrick = {
-            uid: makeUid('m'),
-            partId: this.activePartId,
-            gx: mirrorGx,
-            gy,
-            gz,
-            rot: this.activeRot,
-            color: this.activeColor,
-          };
-          this.bricks.push(mirrorBrick);
-          this.addBrickVisual(mirrorBrick, true);
-        }
-      }
-
-      sound.playBrickSnap();
-      if (navigator.vibrate) navigator.vibrate(12);
-      this.onChange();
+      this.commitCandidate(this.lastCandidate);
       // Re-evaluate snap immediately so user can stack bricks effortlessly
       this.computeSnapFromPointer(clientX, clientY);
     }
+  }
+
+  private commitCandidate(candidate: SnapCandidate): void {
+    this.pushUndo();
+    const { gx, gy, gz } = candidate;
+    const placed: PlacedBrick = {
+      uid: makeUid('u'),
+      partId: this.activePartId,
+      gx,
+      gy,
+      gz,
+      rot: this.activeRot,
+      color: this.activeColor,
+    };
+    this.bricks.push(placed);
+    this.addBrickVisual(placed, true);
+
+    // Optional X-axis symmetry mirror placement!
+    if (this.mirrorX) {
+      const part = PARTS_MAP[this.activePartId];
+      const dims = getRotatedDims(part, this.activeRot);
+      const mirrorGx = -(gx + dims.w);
+      if (mirrorGx !== gx && this.isPlacementValid(this.activePartId, mirrorGx, gy, gz, this.activeRot)) {
+        const mirrorBrick: PlacedBrick = {
+          uid: makeUid('m'),
+          partId: this.activePartId,
+          gx: mirrorGx,
+          gy,
+          gz,
+          rot: this.activeRot,
+          color: this.activeColor,
+        };
+        this.bricks.push(mirrorBrick);
+        this.addBrickVisual(mirrorBrick, true);
+      }
+    }
+
+    this.placedCountSession++;
+    sound.playBrickSnap();
+    if (navigator.vibrate) navigator.vibrate(14);
+    this.onChange();
   }
 
   private onPointerMove = (e: PointerEvent): void => {
@@ -637,6 +748,7 @@ export class GarageController {
 
   private onPointerDown = (e: PointerEvent): void => {
     if (!this.active) return;
+    if (this.controls) this.controls.autoRotate = false;
     this.isPointerDown = true;
     this.pointerDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
   };
@@ -650,7 +762,7 @@ export class GarageController {
     const dist = Math.hypot(dx, dy);
 
     // Quick tap or click without dragging -> place / paint / erase!
-    if (dist < 8 && dt < 380) {
+    if (dist < 12 && dt < 420) {
       this.performClickAction(e.clientX, e.clientY, e.button === 2);
     }
   };
@@ -658,6 +770,11 @@ export class GarageController {
   private onContextMenu = (e: MouseEvent): void => {
     if (!this.active) return;
     e.preventDefault();
+  };
+
+  private onResize = (): void => {
+    if (!this.active) return;
+    this.recenterCamera();
   };
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -690,6 +807,7 @@ export class GarageController {
     dom.addEventListener('pointerup', this.onPointerUp);
     dom.addEventListener('contextmenu', this.onContextMenu);
     window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('resize', this.onResize);
   }
 
   private unbindEvents(): void {
@@ -699,6 +817,7 @@ export class GarageController {
     dom.removeEventListener('pointerup', this.onPointerUp);
     dom.removeEventListener('contextmenu', this.onContextMenu);
     window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('resize', this.onResize);
   }
 
   public update(dt: number): void {

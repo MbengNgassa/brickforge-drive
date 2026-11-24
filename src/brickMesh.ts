@@ -606,17 +606,17 @@ export function createGarageFloorTexture(): THREE.CanvasTexture {
   canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.fillStyle = '#c9ced6';
+  ctx.fillStyle = '#5c6675';
   ctx.fillRect(0, 0, 512, 512);
 
-  ctx.strokeStyle = '#a4acb8';
+  ctx.strokeStyle = '#47505e';
   ctx.lineWidth = 4;
   ctx.strokeRect(2, 2, 508, 508);
 
-  // Subtle glossy studio floor tile highlights
+  // Subtle studio floor tile sheen
   const grad = ctx.createLinearGradient(0, 0, 512, 512);
-  grad.addColorStop(0, 'rgba(255,255,255,0.16)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.06)');
+  grad.addColorStop(0, 'rgba(255,255,255,0.08)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.08)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 512, 512);
 

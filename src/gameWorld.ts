@@ -144,6 +144,7 @@ export class GameWorldController {
     this.eventBanner = mode === 'derby' ? `WAVE ${wave} — SMASH ALL RIVALS!` : mode === 'freeroam' ? 'STUNT PARK — TEST YOUR BUILD!' : '';
     this.eventBannerTimer = 2.6;
 
+    this.engine.setBloomEnabled(true);
     this.engine.clearScene();
     const scene = this.engine.scene;
     const maxDebris = this.engine.getQuality() === 'ultra' ? 280 : this.engine.getQuality() === 'high' ? 180 : 100;

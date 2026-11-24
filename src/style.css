@@ -1,9 +1,9 @@
 :root {
   --bg-dark: #0e131b;
-  --panel-bg: rgba(15, 21, 30, 0.86);
+  --panel-bg: rgba(15, 21, 30, 0.84);
   --panel-solid: #141c28;
-  --panel-border: rgba(255, 255, 255, 0.11);
-  --panel-border-strong: rgba(255, 255, 255, 0.22);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-border-strong: rgba(255, 255, 255, 0.24);
   --text-main: #f3f6fa;
   --text-muted: #9aa7b8;
   --accent-yellow: #f4be17;
@@ -51,8 +51,8 @@ body,
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
-    max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
 }
 
 .ui-layer.hidden,
@@ -64,6 +64,10 @@ body,
   pointer-events: auto;
 }
 
+.mobile-only {
+  display: none !important;
+}
+
 /* Shared Glass-Metal Surface */
 .panel {
   background: var(--panel-bg);
@@ -71,7 +75,7 @@ body,
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
 }
 
 /* Buttons */
@@ -79,32 +83,33 @@ body,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 13px;
+  gap: 5px;
+  height: 34px;
+  padding: 0 11px;
   border-radius: 10px;
   border: 1px solid var(--panel-border);
-  background: rgba(30, 40, 56, 0.85);
+  background: rgba(30, 40, 56, 0.88);
   color: var(--text-main);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.12s ease, background 0.14s ease, border-color 0.14s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn:hover:not(:disabled) {
-  background: rgba(45, 58, 78, 0.95);
+  background: rgba(45, 58, 78, 0.96);
   border-color: var(--panel-border-strong);
 }
 
 .btn:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
 .btn:disabled {
-  opacity: 0.42;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -141,15 +146,26 @@ body,
   background: #38bdf8;
 }
 
+.btn-green {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: transparent;
+  font-weight: 800;
+}
+
+.btn-green:hover:not(:disabled) {
+  background: #22c55e;
+}
+
 .btn-active {
   background: var(--accent-yellow);
   color: #11161f;
   border-color: transparent;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .btn-icon {
-  width: 36px;
+  width: 34px;
   padding: 0;
 }
 
@@ -160,44 +176,44 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .brand-group {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 5px 10px;
+  min-width: 0;
 }
 
 .brand-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   background: var(--accent-red);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  padding: 5px;
+  gap: 2.5px;
+  padding: 4px;
+  flex-shrink: 0;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28);
 }
 
 .brand-mark span {
   border-radius: 50%;
-  background: #ff7a70;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  background: #ff857a;
 }
 
 .brand-title {
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -205,7 +221,7 @@ body,
 }
 
 .vehicle-name-input {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--panel-border);
   color: var(--text-main);
   font-family: var(--font-ui);
@@ -213,7 +229,7 @@ body,
   font-weight: 600;
   border-radius: 8px;
   padding: 5px 9px;
-  width: 145px;
+  width: 140px;
   outline: none;
   user-select: text;
   -webkit-user-select: text;
@@ -225,47 +241,75 @@ body,
 
 .brick-counter {
   font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   color: var(--accent-yellow);
-  background: rgba(244, 190, 23, 0.12);
-  padding: 4px 9px;
-  border-radius: 8px;
+  background: rgba(244, 190, 23, 0.14);
+  padding: 3px 7px;
+  border-radius: 7px;
+  white-space: nowrap;
 }
 
-.launch-group {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px;
-}
-
+.launch-group,
 .util-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px;
+  padding: 4px 5px;
 }
 
 /* =========================================================================
-   GARAGE MIDDLE AREA (Stats Rail + Floating Tools)
+   GARAGE CENTER VIEWPORT (Wide open for 3D car!)
    ========================================================================= */
 .garage-middle {
   flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 10px 0;
-  pointer-events: none;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-top: 8px;
+  pointer-events: none;
+}
+
+.coach-pill {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(94vw, 560px);
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: rgba(15, 21, 30, 0.78);
+  border: 1px solid rgba(34, 229, 107, 0.45);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  line-height: 1.3;
+  color: #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.coach-pill b {
+  color: #fde047;
+}
+
+.coach-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
 }
 
 .stats-card {
-  width: 215px;
-  padding: 12px 14px;
+  position: absolute;
+  top: 46px;
+  left: 0;
+  width: 205px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .stats-header {
@@ -275,7 +319,7 @@ body,
   font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -295,8 +339,8 @@ body,
 }
 
 .stat-track {
-  height: 6px;
-  background: rgba(255, 255, 255, 0.09);
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -309,55 +353,55 @@ body,
 
 .stat-warning {
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.3;
   color: #fde047;
   background: rgba(234, 179, 8, 0.14);
-  padding: 6px 8px;
-  border-radius: 8px;
-}
-
-.tool-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px;
-}
-
-.garage-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 4px;
-  transform: translateX(-50%);
-  font-size: 12px;
-  color: rgba(241, 245, 249, 0.85);
-  background: rgba(14, 19, 27, 0.65);
-  padding: 5px 12px;
-  border-radius: 99px;
-  pointer-events: none;
-  white-space: nowrap;
+  padding: 5px 8px;
+  border-radius: 7px;
 }
 
 /* =========================================================================
-   GARAGE BOTTOM BRICK DOCK
+   GARAGE BOTTOM STACK (Action Strip + Visual Brick Dock)
    ========================================================================= */
+.garage-bottom-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-strip {
+  align-self: center;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.action-strip::-webkit-scrollbar {
+  display: none;
+}
+
 .brick-dock {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 7px;
+  padding: 8px 10px;
 }
 
 .dock-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .category-tabs {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -367,21 +411,16 @@ body,
 }
 
 .cat-tab {
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 8px;
   border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.14s ease;
-}
-
-.cat-tab:hover {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .cat-tab.active {
@@ -392,9 +431,9 @@ body,
 .color-palette {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 2px;
+  padding: 5px 6px;
   scrollbar-width: none;
 }
 
@@ -403,92 +442,166 @@ body,
 }
 
 .color-swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.12s ease, border-color 0.12s ease;
-  position: relative;
-}
-
-.color-swatch:hover {
-  transform: scale(1.12);
+  transition: transform 0.12s ease;
 }
 
 .color-swatch.active {
   border-color: #ffffff;
   transform: scale(1.16);
-  box-shadow: 0 0 0 2px #11161f, 0 0 0 4px var(--accent-yellow);
+  box-shadow: 0 0 0 2px #11161f, 0 0 0 3.5px var(--accent-yellow);
 }
 
 .parts-strip {
   display: flex;
-  gap: 8px;
+  gap: 7px;
   overflow-x: auto;
   padding-bottom: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  scrollbar-width: none;
+}
+
+.parts-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .part-card {
-  min-width: 112px;
-  padding: 8px 10px;
+  width: 84px;
+  padding: 6px 6px 5px;
   border-radius: 10px;
   border: 1px solid var(--panel-border);
-  background: rgba(25, 34, 48, 0.85);
+  background: rgba(25, 34, 48, 0.88);
   color: var(--text-main);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  text-align: left;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
   transition: transform 0.12s ease, border-color 0.14s ease, background 0.14s ease;
   flex-shrink: 0;
 }
 
 .part-card:hover {
-  background: rgba(36, 48, 68, 0.95);
+  background: rgba(36, 48, 68, 0.96);
   border-color: var(--panel-border-strong);
 }
 
 .part-card.active {
-  background: rgba(244, 190, 23, 0.16);
+  background: rgba(244, 190, 23, 0.18);
   border-color: var(--accent-yellow);
+  box-shadow: inset 0 0 0 1px rgba(244, 190, 23, 0.5);
+}
+
+.part-thumb {
+  position: relative;
+  width: 60px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.part-svg {
+  width: 56px;
+  height: 42px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
 }
 
 .part-card-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.part-card-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 10px;
+.part-card-size {
+  font-size: 9.5px;
   color: var(--text-muted);
 }
 
 .part-badge {
-  font-size: 10px;
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  font-size: 8.5px;
   font-weight: 800;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(34, 211, 238, 0.16);
-  color: #67e8f9;
+  background: rgba(14, 165, 233, 0.92);
+  color: #ffffff;
 }
 
 .part-badge.ram {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.92);
 }
 
 .part-badge.grip {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
+  background: rgba(22, 163, 74, 0.92);
+}
+
+/* Mobile Play Mode Sheet Cards */
+.play-mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.play-mode-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border-strong);
+  background: rgba(26, 36, 52, 0.92);
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.14s ease;
+}
+
+.play-mode-card:active {
+  transform: scale(0.98);
+}
+
+.play-mode-card.race {
+  border-color: rgba(244, 190, 23, 0.55);
+}
+
+.play-mode-card.derby {
+  border-color: rgba(224, 49, 49, 0.65);
+}
+
+.play-mode-card.stunt {
+  border-color: rgba(34, 211, 238, 0.55);
+}
+
+.play-mode-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.play-mode-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.play-mode-card span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* =========================================================================
@@ -502,10 +615,10 @@ body,
 }
 
 .hud-primary-box {
-  padding: 10px 16px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
 .hud-metric {
@@ -523,7 +636,7 @@ body,
 
 .hud-metric-value {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.05;
   color: var(--text-main);
@@ -546,8 +659,8 @@ body,
 
 .hud-actions {
   display: flex;
-  gap: 6px;
-  padding: 5px;
+  gap: 5px;
+  padding: 4px;
 }
 
 .minimap-wrap {
@@ -557,8 +670,8 @@ body,
 
 #minimap-canvas {
   display: block;
-  width: 128px;
-  height: 128px;
+  width: 120px;
+  height: 120px;
   border-radius: 10px;
 }
 
@@ -573,7 +686,6 @@ body,
   border: 1px solid var(--panel-border);
 }
 
-/* Center Countdown & Event Banner */
 .hud-center {
   position: fixed;
   top: 22%;
@@ -598,46 +710,43 @@ body,
 
 .event-banner {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 8px 22px;
+  padding: 8px 20px;
   border-radius: 12px;
   background: rgba(14, 19, 27, 0.86);
   border: 1px solid rgba(244, 190, 23, 0.55);
   color: var(--accent-yellow);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
   text-align: center;
 }
 
-/* Bottom Telemetry Cluster */
 .hud-bottom {
   display: flex;
   justify-content: center;
   align-items: flex-end;
   gap: 14px;
-  position: relative;
 }
 
 .telemetry-panel {
-  padding: 10px 18px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
-  gap: 20px;
-  min-width: 340px;
+  gap: 18px;
+  min-width: 320px;
 }
 
 .speed-readout {
   display: flex;
   align-items: baseline;
   gap: 5px;
-  min-width: 104px;
+  min-width: 96px;
 }
 
 .speed-num {
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: 36px;
   font-weight: 900;
   line-height: 1;
   color: #ffffff;
@@ -654,7 +763,7 @@ body,
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 
 .hud-bar-row {
@@ -706,8 +815,8 @@ body,
   position: fixed;
   left: 0;
   right: 0;
-  bottom: max(14px, env(safe-area-inset-bottom));
-  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -717,20 +826,20 @@ body,
 
 .touch-cluster {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-end;
   pointer-events: auto;
 }
 
 .touch-btn {
-  width: 68px;
-  height: 68px;
-  border-radius: 18px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   border: 2px solid rgba(255, 255, 255, 0.24);
   background: rgba(15, 21, 30, 0.72);
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -747,27 +856,27 @@ body,
 }
 
 .touch-btn.gas {
-  height: 82px;
+  height: 78px;
   background: rgba(34, 197, 94, 0.28);
   border-color: rgba(74, 222, 128, 0.65);
 }
 
 .touch-btn.boost {
-  height: 82px;
+  height: 78px;
   background: rgba(14, 165, 233, 0.34);
   border-color: rgba(56, 232, 255, 0.78);
   color: #e0f2fe;
 }
 
 .touch-btn.brake {
-  width: 58px;
-  height: 58px;
+  width: 54px;
+  height: 54px;
   background: rgba(224, 49, 49, 0.28);
   border-color: rgba(248, 113, 113, 0.6);
 }
 
 /* =========================================================================
-   MODALS (Blueprints, Settings, Finish Overlay, Install Guide)
+   MODALS
    ========================================================================= */
 .modal-backdrop {
   position: fixed;
@@ -778,17 +887,17 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 14px;
 }
 
 .modal-card {
-  width: min(560px, 100%);
+  width: min(540px, 100%);
   max-height: 86vh;
   overflow-y: auto;
-  padding: 20px 22px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .modal-header {
@@ -799,25 +908,25 @@ body,
 
 .modal-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   margin: 0;
 }
 
 .blueprint-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 10px;
 }
 
 .bp-item {
-  padding: 12px;
+  padding: 11px;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
   background: rgba(25, 34, 48, 0.9);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .bp-item-title {
@@ -845,7 +954,7 @@ body,
   gap: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .setting-info {
@@ -859,19 +968,20 @@ body,
 }
 
 .setting-info span {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .finish-card {
   text-align: center;
   align-items: center;
-  max-width: 440px;
+  max-width: 420px;
 }
 
 .finish-badge {
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 900;
   color: var(--accent-yellow);
 }
@@ -893,33 +1003,107 @@ body,
   justify-content: center;
 }
 
-/* Responsive adjustments for mobile screens */
-@media (max-width: 760px) {
-  .stats-card {
-    width: 162px;
-    padding: 8px 10px;
-    gap: 5px;
+/* =========================================================================
+   MOBILE BREAKPOINT — Keep 60%+ of screen completely clear for the 3D car!
+   ========================================================================= */
+@media (max-width: 860px) {
+  .desktop-only {
+    display: none !important;
   }
-  .garage-hint {
+
+  .mobile-only {
+    display: inline-flex !important;
+  }
+
+  .brand-title {
     display: none;
   }
-  .vehicle-name-input {
-    width: 110px;
+
+  .top-bar {
+    gap: 6px;
   }
+
+  .brand-group {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .util-group {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .btn {
+    height: 32px;
+    padding: 0 9px;
+    font-size: 11.5px;
+  }
+
+  .btn-icon {
+    width: 32px;
+  }
+
+  /* Hide bulky stats panel on phone unless toggled via 📊 button! */
+  .stats-card {
+    display: none;
+    top: 44px;
+    left: 0;
+    width: 196px;
+    z-index: 20;
+  }
+
+  .stats-card.mobile-open {
+    display: flex;
+  }
+
+  .coach-pill {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .brick-dock {
+    padding: 7px 8px;
+    gap: 6px;
+  }
+
+  .dock-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+  }
+
+  .part-card {
+    width: 74px;
+    padding: 5px 4px 4px;
+  }
+
+  .part-thumb {
+    width: 52px;
+    height: 36px;
+  }
+
+  .part-svg {
+    width: 48px;
+    height: 34px;
+  }
+
   .telemetry-panel {
-    min-width: 220px;
+    min-width: 210px;
     padding: 8px 12px;
     gap: 10px;
-    margin-bottom: 92px;
+    margin-bottom: 88px;
   }
+
   .speed-num {
-    font-size: 28px;
+    font-size: 26px;
   }
+
   #minimap-canvas {
-    width: 96px;
-    height: 96px;
+    width: 88px;
+    height: 88px;
   }
+
   .hud-metric-value {
-    font-size: 20px;
+    font-size: 18px;
   }
 }

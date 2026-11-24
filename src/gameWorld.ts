@@ -9,7 +9,7 @@ import { sound } from './audio';
 import { DebrisSystem, DriveVehicle } from './vehiclePhysics';
 import type { ControlInput } from './vehiclePhysics';
 import type { GraphicsEngine } from './engine';
-import type { GameMode, HudState, VehicleBlueprint } from './types';
+import type { DriverProfile, GameMode, HudState, VehicleBlueprint } from './types';
 
 interface RampDef {
   x: number;
@@ -23,6 +23,21 @@ interface RampDef {
 interface BoostPadDef {
   pos: THREE.Vector3;
   radius: number;
+}
+
+interface SpringPadDef {
+  mesh: THREE.Group;
+  pos: THREE.Vector3;
+  radius: number;
+  power: number;
+  bounceAnim: number;
+}
+
+interface StuntRingDef {
+  mesh: THREE.Mesh;
+  pos: THREE.Vector3;
+  radius: number;
+  cooldown: number;
 }
 
 interface PickupDef {
@@ -47,6 +62,7 @@ export interface TouchInputState {
   brake: boolean;
   boost: boolean;
   drift: boolean;
+  jump: boolean;
 }
 
 const ARENA_RADIUS = 135;
@@ -71,6 +87,8 @@ export class GameWorldController {
   // World interactive props
   private ramps: RampDef[] = [];
   private boostPads: BoostPadDef[] = [];
+  private springPads: SpringPadDef[] = [];
+  private stuntRings: StuntRingDef[] = [];
   private pickups: PickupDef[] = [];
   private cones: KnockableCone[] = [];
   private pillarRadius = 9.5;
@@ -84,6 +102,7 @@ export class GameWorldController {
     brake: false,
     boost: false,
     drift: false,
+    jump: false,
   };
 
   // Match & camera state
@@ -107,24 +126,35 @@ export class GameWorldController {
   private eventBanner = '';
   private eventBannerTimer = 0;
   private playerBlueprint!: VehicleBlueprint;
+  private otherDrivers: DriverProfile[] = [];
+  private onMatchEnd?: (kos: number, won: boolean) => void;
 
   // Minimap callback
   public minimapCanvas: HTMLCanvasElement | null = null;
 
-  constructor(engine: GraphicsEngine) {
+  constructor(engine: GraphicsEngine, onMatchEnd?: (kos: number, won: boolean) => void) {
     this.engine = engine;
+    this.onMatchEnd = onMatchEnd;
   }
 
-  public enter(mode: Exclude<GameMode, 'garage'>, playerBlueprint: VehicleBlueprint, wave = 1): void {
+  public enter(
+    mode: Exclude<GameMode, 'garage'>,
+    playerBlueprint: VehicleBlueprint,
+    wave = 1,
+    otherDrivers: DriverProfile[] = []
+  ): void {
     this.mode = mode;
     this.active = true;
     this.paused = false;
     this.wave = wave;
     this.playerBlueprint = cloneBlueprint(playerBlueprint);
+    this.otherDrivers = otherDrivers;
 
     this.vehicles = [];
     this.ramps = [];
     this.boostPads = [];
+    this.springPads = [];
+    this.stuntRings = [];
     this.pickups = [];
     this.cones = [];
     this.trackCurve = null;
@@ -141,8 +171,15 @@ export class GameWorldController {
     this.won = false;
     this.finishMessage = '';
     this.finishSubtext = '';
-    this.eventBanner = mode === 'derby' ? `WAVE ${wave} — SMASH ALL RIVALS!` : mode === 'freeroam' ? 'STUNT PARK — TEST YOUR BUILD!' : '';
-    this.eventBannerTimer = 2.6;
+    this.eventBanner =
+      mode === 'family'
+        ? '⚔️ FAMILY CLASH — BATTLE EACH OTHER\'S BUILDS!'
+        : mode === 'derby'
+          ? `WAVE ${wave} — SMASH ALL RIVALS!`
+          : mode === 'freeroam'
+            ? 'MEGA STUNT PARK — HIT SPRINGS & SKY RINGS!'
+            : '';
+    this.eventBannerTimer = 2.8;
 
     this.engine.setBloomEnabled(true);
     this.engine.clearScene();
@@ -464,16 +501,30 @@ export class GameWorldController {
     const gridSlots = [0.992, 0.985, 0.978, 0.971, 0.964, 0.957];
     const laneOffsets = [-3.6, 3.6, -3.6, 3.6, -3.6, 3.6];
 
-    // Spawn 5 badass AI racers on the Canyon Circuit
-    AI_RACER_PROFILES.slice(0, 5).forEach((profile, idx) => {
-      const bpBase = STARTER_BLUEPRINTS.find((s) => s.id === profile.blueprintId) || STARTER_BLUEPRINTS[0];
-      const v = new DriveVehicle(`ai_${idx}`, profile.name, cloneBlueprint(bpBase), false, false, profile.tint);
+    // Spawn 5 rivals (prioritizing other family/kid custom vehicles first!)
+    for (let idx = 0; idx < 5; idx++) {
+      let name: string;
+      let bp: VehicleBlueprint;
+      let tint: string;
+      if (idx < this.otherDrivers.length) {
+        const d = this.otherDrivers[idx];
+        name = `${d.avatar} ${d.username}`;
+        bp = cloneBlueprint(d.activeVehicle);
+        tint = d.accentColor;
+      } else {
+        const profile = AI_RACER_PROFILES[idx % AI_RACER_PROFILES.length];
+        const bpBase = STARTER_BLUEPRINTS.find((s) => s.id === profile.blueprintId) || STARTER_BLUEPRINTS[0];
+        name = profile.name;
+        bp = cloneBlueprint(bpBase);
+        tint = profile.tint;
+      }
+      const v = new DriveVehicle(`ai_${idx}`, name, bp, false, false, tint);
       this.placeOnSpline(v, gridSlots[idx], laneOffsets[idx]);
       v.splineT = gridSlots[idx];
       v.totalProgress = gridSlots[idx] - 1;
       scene.add(v.root);
       this.vehicles.push(v);
-    });
+    }
 
     // Spawn Player's custom-built vehicle!
     this.player = new DriveVehicle('player', this.playerBlueprint.name, this.playerBlueprint, true, enableLights);
@@ -560,7 +611,6 @@ export class GameWorldController {
       stripe.position.y = 2.0;
       wall.add(base, stripe);
 
-      // Stadium floodlight towers every 7 segments
       if (i % 7 === 0) {
         const pole = new THREE.Mesh(new THREE.BoxGeometry(1.8, 28, 1.8), towerMat);
         pole.position.set(0, 14, 1.5);
@@ -574,7 +624,7 @@ export class GameWorldController {
       scene.add(wall);
     }
 
-    // Central Coliseum Smash Tower (in Derby; mega jump plaza in Stunt Park)
+    // Central Coliseum Smash Tower (in Derby/Family; Giant Stunt Mega-Ramp + Turbo Runway in Stunt Park!)
     if (!isFreeRoam) {
       this.pillarRadius = 9.5;
       const pillar = new THREE.Mesh(
@@ -597,28 +647,56 @@ export class GameWorldController {
       scene.add(pillar, band1, band2);
     } else {
       this.pillarRadius = 0;
-      // Central Stunt Park Big-Air Mega Ramp!
-      this.createRamp(scene, 0, 0, 0, 14, 18, 5.4);
+      // Central Stunt Park Big-Air Mega Ramp + 3-pad Turbo Boost Runway + Sky Ring!
+      this.createRamp(scene, 0, 0, 0, 15, 22, 7.2);
+      this.createBoostPad(scene, new THREE.Vector3(0, 0, -42), 0);
+      this.createBoostPad(scene, new THREE.Vector3(0, 0, -28), 0);
+      this.createBoostPad(scene, new THREE.Vector3(0, 0, -16), 0);
+      this.createStuntRing(scene, new THREE.Vector3(0, 16.5, 28), 0);
+      this.createStuntRing(scene, new THREE.Vector3(0, 12.5, 52), 0);
     }
 
-    // 4 Inner Bowl Jump Ramps
-    this.createRamp(scene, 0, 48, 0, 10.5, 14.0, 4.0);
-    this.createRamp(scene, 0, -48, Math.PI, 10.5, 14.0, 4.0);
-    this.createRamp(scene, 48, 0, Math.PI / 2, 10.5, 14.0, 4.0);
-    this.createRamp(scene, -48, 0, -Math.PI / 2, 10.5, 14.0, 4.0);
+    // 4 Inner Bowl Big-Air Ramps + floating Sky Stunt Rings right in their flight paths!
+    this.createRamp(scene, 0, 48, 0, 11, 15, 4.8);
+    this.createRamp(scene, 0, -48, Math.PI, 11, 15, 4.8);
+    this.createRamp(scene, 48, 0, Math.PI / 2, 11, 15, 4.8);
+    this.createRamp(scene, -48, 0, -Math.PI / 2, 11, 15, 4.8);
+
+    this.createStuntRing(scene, new THREE.Vector3(0, 13.5, 74), 0);
+    this.createStuntRing(scene, new THREE.Vector3(0, 13.5, -74), 0);
+    this.createStuntRing(scene, new THREE.Vector3(74, 13.5, 0), Math.PI / 2);
+    this.createStuntRing(scene, new THREE.Vector3(-74, 13.5, 0), Math.PI / 2);
 
     // 4 Outer Corner Mega-Air Stunt Ramps!
-    this.createRamp(scene, 68, 68, -Math.PI * 0.75, 12.0, 16.0, 4.8);
-    this.createRamp(scene, -68, 68, Math.PI * 0.75, 12.0, 16.0, 4.8);
-    this.createRamp(scene, 68, -68, -Math.PI * 0.25, 12.0, 16.0, 4.8);
-    this.createRamp(scene, -68, -68, Math.PI * 0.25, 12.0, 16.0, 4.8);
+    this.createRamp(scene, 68, 68, -Math.PI * 0.75, 13, 18, 5.8);
+    this.createRamp(scene, -68, 68, Math.PI * 0.75, 13, 18, 5.8);
+    this.createRamp(scene, 68, -68, -Math.PI * 0.25, 13, 18, 5.8);
+    this.createRamp(scene, -68, -68, Math.PI * 0.25, 13, 18, 5.8);
+
+    // 8 Giant 3D Coiled SPRING BOUNCE PADS (launches vehicles SKY-HIGH with a BOING!)
+    const springCoords: [number, number][] = [
+      [24, 24],
+      [-24, 24],
+      [24, -24],
+      [-24, -24],
+      [88, 36],
+      [-88, 36],
+      [88, -36],
+      [-88, -36],
+    ];
+    for (const [sx, sz] of springCoords) {
+      this.createSpringPad(scene, new THREE.Vector3(sx, 0, sz), 33);
+    }
+    // Floating rings directly above 2 diagonal spring pads for vertical spring stunts!
+    this.createStuntRing(scene, new THREE.Vector3(24, 15.5, 24), Math.PI / 4);
+    this.createStuntRing(scene, new THREE.Vector3(-24, 15.5, -24), Math.PI / 4);
 
     // 8 High-Speed Plasma Boost Pads across inner & outer speed rings
     const padCoords: [number, number, number][] = [
-      [34, 34, -Math.PI * 0.75],
-      [-34, 34, Math.PI * 0.75],
-      [34, -34, -Math.PI * 0.25],
-      [-34, -34, Math.PI * 0.25],
+      [38, 38, -Math.PI * 0.75],
+      [-38, 38, Math.PI * 0.75],
+      [38, -38, -Math.PI * 0.25],
+      [-38, -38, Math.PI * 0.25],
       [0, 96, Math.PI / 2],
       [0, -96, -Math.PI / 2],
       [96, 0, 0],
@@ -682,24 +760,102 @@ export class GameWorldController {
 
     if (isFreeRoam) return;
 
-    // Spawn 8 badass AI Derby contenders in a wide ring facing inward!
-    const count = 8;
-    for (let i = 0; i < count; i++) {
-      const profile = AI_RACER_PROFILES[i % AI_RACER_PROFILES.length];
-      const bpBase = STARTER_BLUEPRINTS.find((s) => s.id === profile.blueprintId) || STARTER_BLUEPRINTS[3];
-      const v = new DriveVehicle(`derby_ai_${i}`, profile.name, cloneBlueprint(bpBase), false, false, profile.tint);
-      // Scale rival durability slightly on later waves
-      v.maxHp = Math.round(v.maxHp * (0.82 + this.wave * 0.14));
+    // Build rival roster: in Family Clash, spawn EVERY other child's custom build first!
+    // In regular Derby, also include other children's builds alongside the 8 boss heroes!
+    const rivalSpecs: { name: string; bp: VehicleBlueprint; tint: string }[] = [];
+
+    for (const drv of this.otherDrivers) {
+      rivalSpecs.push({
+        name: `${drv.avatar} ${drv.username}`,
+        bp: cloneBlueprint(drv.activeVehicle),
+        tint: drv.accentColor,
+      });
+    }
+
+    const targetCount = this.mode === 'family' ? Math.max(4, rivalSpecs.length) : 8;
+    let aiIdx = 0;
+    while (rivalSpecs.length < targetCount) {
+      const profile = AI_RACER_PROFILES[aiIdx % AI_RACER_PROFILES.length];
+      const bpBase = STARTER_BLUEPRINTS.find((s) => s.id === profile.blueprintId) || STARTER_BLUEPRINTS[10];
+      rivalSpecs.push({
+        name: profile.name,
+        bp: cloneBlueprint(bpBase),
+        tint: profile.tint,
+      });
+      aiIdx++;
+    }
+
+    rivalSpecs.forEach((spec, i) => {
+      const v = new DriveVehicle(`derby_ai_${i}`, spec.name, spec.bp, false, false, spec.tint);
+      v.maxHp = Math.round(v.maxHp * (0.85 + this.wave * 0.1));
       v.hp = v.maxHp;
 
-      const ang = ((i + 1) / (count + 1)) * Math.PI * 2;
+      const ang = ((i + 1) / (rivalSpecs.length + 1)) * Math.PI * 2;
       const r = 84;
       v.position.set(Math.sin(ang) * r, 0.1, Math.cos(ang) * r);
       v.heading = Math.atan2(-v.position.x, -v.position.z);
       v.syncTransform();
       scene.add(v.root);
       this.vehicles.push(v);
+    });
+  }
+
+  private createSpringPad(scene: THREE.Scene, pos: THREE.Vector3, power: number): void {
+    const group = new THREE.Group();
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.2, 4.6, 0.36, 20),
+      new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.4 })
+    );
+    base.position.y = 0.18;
+    group.add(base);
+
+    // 3 glowing yellow coiled spring rings
+    const coilMat = new THREE.MeshStandardMaterial({
+      color: 0xf4be17,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 0.75,
+      roughness: 0.3,
+    });
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.24, 8, 18), coilMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.45 + i * 0.38;
+      group.add(ring);
     }
+
+    // Bright red/yellow bounce top cap
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.4, 3.4, 0.34, 20),
+      new THREE.MeshStandardMaterial({
+        color: 0xe03131,
+        emissive: 0xd92626,
+        emissiveIntensity: 0.55,
+        roughness: 0.3,
+      })
+    );
+    cap.position.y = 1.45;
+    cap.name = 'spring_cap';
+    group.add(cap);
+
+    group.position.copy(pos);
+    scene.add(group);
+    this.springPads.push({ mesh: group, pos: pos.clone(), radius: 4.5, power, bounceAnim: 0 });
+  }
+
+  private createStuntRing(scene: THREE.Scene, pos: THREE.Vector3, rotY: number): void {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(6.2, 0.55, 12, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 2.0,
+        roughness: 0.2,
+      })
+    );
+    ring.position.copy(pos);
+    ring.rotation.y = rotY;
+    scene.add(ring);
+    this.stuntRings.push({ mesh: ring, pos: pos.clone(), radius: 7.4, cooldown: 0 });
   }
 
   private createRamp(
@@ -806,16 +962,20 @@ export class GameWorldController {
       // Project into ramp local space (+localZ = up the ramp)
       const localX = dx * cos - dz * sin;
       const localZ = dx * sin + dz * cos;
-      if (Math.abs(localX) <= r.width * 0.54 && localZ >= -r.length * 0.52 && localZ <= r.length * 0.52) {
+      if (Math.abs(localX) <= r.width * 0.56 && localZ >= -r.length * 0.54 && localZ <= r.length * 0.56) {
         const ratio = THREE.MathUtils.clamp((localZ + r.length / 2) / r.length, 0, 1);
         const rampH = ratio * r.height;
         if (rampH > h) {
           h = rampH;
-          // Launch airborne near the lip!
+          // SKY-HIGH MEGA RAMP LAUNCH!
           const fwdSpeed = v.getSpeed();
-          if (ratio > 0.84 && fwdSpeed > 18 && v.grounded && v.vy < 4) {
-            v.vy = Math.min(20, fwdSpeed * 0.42);
+          if (ratio > 0.72 && fwdSpeed > 14 && v.grounded && v.vy < 8) {
+            v.vy = Math.min(40, 14 + fwdSpeed * 0.64 + v.stats.springCount * 3.2);
             v.grounded = false;
+            if (v.isPlayer) {
+              sound.playBoing();
+              this.showBanner('MEGA LAUNCH! 🚀');
+            }
           }
         }
       }
@@ -834,7 +994,8 @@ export class GameWorldController {
 
     const boost = this.keys.has('Space') || this.touchInput.boost;
     const handbrake = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchInput.drift;
-    return { throttle, steer, boost, handbrake };
+    const jump = this.keys.has('KeyJ') || this.keys.has('KeyF') || this.touchInput.jump;
+    return { throttle, steer, boost, handbrake, jump };
   }
 
   private computeRaceAiInput(v: DriveVehicle, idx: number): ControlInput {
@@ -853,7 +1014,6 @@ export class GameWorldController {
 
     const steer = THREE.MathUtils.clamp(diff * 2.4, -1, 1);
     const sharpTurn = Math.abs(diff) > 0.55;
-    // Slight rubber-banding so races stay exciting & competitive!
     const distDelta = this.player.totalProgress - v.totalProgress;
     const throttle = sharpTurn ? 0.72 : distDelta > 0.12 ? 1.0 : 0.9;
     const boost = !sharpTurn && v.boost > 55 && (distDelta > 0.05 || Math.sin(this.elapsedTime * 1.4 + idx) > 0.78);
@@ -861,13 +1021,12 @@ export class GameWorldController {
   }
 
   private computeDerbyAiInput(v: DriveVehicle): ControlInput {
-    // Pick nearest alive opponent (with slight preference for hunting the player!)
     let bestTarget: DriveVehicle | null = null;
     let bestScore = Infinity;
     for (const other of this.vehicles) {
       if (other === v || other.wrecked) continue;
       let dist = v.position.distanceTo(other.position);
-      if (other.isPlayer) dist *= 0.82;
+      if (other.isPlayer) dist *= 0.85;
       if (dist < bestScore) {
         bestScore = dist;
         bestTarget = other;
@@ -876,12 +1035,11 @@ export class GameWorldController {
 
     if (!bestTarget) return { throttle: 0, steer: 0, boost: false, handbrake: false };
 
-    // Avoid central smash pillar
     let targetX = bestTarget.position.x + bestTarget.velocity.x * 0.35;
     let targetZ = bestTarget.position.z + bestTarget.velocity.z * 0.35;
 
     const distFromCenter = Math.hypot(v.position.x, v.position.z);
-    if (distFromCenter < this.pillarRadius + 6.5) {
+    if (distFromCenter < this.pillarRadius + 7.5) {
       targetX = v.position.x * 2.2;
       targetZ = v.position.z * 2.2;
     }
@@ -891,19 +1049,20 @@ export class GameWorldController {
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
 
-    // If pinned close to wall or pillar at low speed, reverse briefly
     if (v.getSpeed() < 3.5 && Math.abs(diff) > 1.7) {
       return { throttle: -0.9, steer: diff > 0 ? -1 : 1, boost: false, handbrake: false };
     }
 
     const steer = THREE.MathUtils.clamp(diff * 2.5, -1, 1);
     const aligned = Math.abs(diff) < 0.38;
-    const boost = aligned && bestScore < 34 && bestScore > 7 && v.boost > 35;
+    const boost = aligned && bestScore < 45 && bestScore > 8 && v.boost > 35;
     return { throttle: 1.0, steer, boost, handbrake: Math.abs(diff) > 1.05 };
   }
 
   private resolveCollisions(): void {
-    // 1. Vehicle-to-Vehicle collisions with ram multiplier & brick shedding!
+    const isBattleMode = this.mode === 'derby' || this.mode === 'family';
+
+    // 1. Vehicle-to-Vehicle collisions with balanced multi-hit durability (~10-14 slams to wreck!)
     for (let i = 0; i < this.vehicles.length; i++) {
       const a = this.vehicles[i];
       if (a.wrecked) continue;
@@ -916,19 +1075,20 @@ export class GameWorldController {
         const dist = Math.hypot(dx, dz);
         const minDist = a.radius + b.radius;
 
+        // Skip collision if one car jumped cleanly over the other!
+        if (Math.abs(a.position.y - b.position.y) > 4.2) continue;
+
         if (dist < minDist && dist > 0.001) {
           const nx = dx / dist;
           const nz = dz / dist;
           const overlap = minDist - dist;
 
-          // Separate vehicles proportionally by mass
           const totalMass = a.stats.mass + b.stats.mass;
           a.position.x -= nx * overlap * (b.stats.mass / totalMass);
           a.position.z -= nz * overlap * (b.stats.mass / totalMass);
           b.position.x += nx * overlap * (a.stats.mass / totalMass);
           b.position.z += nz * overlap * (a.stats.mass / totalMass);
 
-          // Relative closing speed along collision normal
           const rvx = a.velocity.x - b.velocity.x;
           const rvz = a.velocity.z - b.velocity.z;
           const closingSpeed = rvx * nx + rvz * nz;
@@ -940,34 +1100,40 @@ export class GameWorldController {
             b.velocity.x += nx * impulse * (a.stats.mass / totalMass);
             b.velocity.z += nz * impulse * (a.stats.mass / totalMass);
 
-            // Damage calculation (heavy in Derby, lighter in Race!)
-            const minCrashSpeed = this.mode === 'derby' ? 7.5 : 15;
+            const minCrashSpeed = isBattleMode ? 9.5 : 18;
             if (closingSpeed > minCrashSpeed) {
               const impactPt = new THREE.Vector3(
                 (a.position.x + b.position.x) * 0.5,
-                1.2,
+                Math.max(a.position.y, b.position.y) + 1.2,
                 (a.position.z + b.position.z) * 0.5
               );
 
-              // Check who rammed front-first! Front rams & spike plows deal huge damage while protecting the rammer!
               const aFwdDot = a.getForwardVector().x * nx + a.getForwardVector().z * nz;
               const bFwdDot = -(b.getForwardVector().x * nx + b.getForwardVector().z * nz);
 
-              const modeScale = this.mode === 'derby' ? 1.55 : 0.42;
-              const dmgToB = Math.max(
-                4,
-                (closingSpeed - 5) * modeScale * a.stats.physRamMultiplier * (aFwdDot > 0.45 ? 1.38 : 0.85) * (a.isBoosting ? 1.35 : 1.0)
-              );
-              const dmgToA = Math.max(
-                4,
-                (closingSpeed - 5) * modeScale * b.stats.physRamMultiplier * (bFwdDot > 0.45 ? 1.38 : 0.85) * (b.isBoosting ? 1.35 : 1.0)
-              );
+              // Balanced damage with 14% maxHp single-hit cap so battles last 10+ exciting crashes!
+              const modeScale = isBattleMode ? 1.45 : 0.35;
+              const rawDmgToB =
+                (closingSpeed - 6) *
+                modeScale *
+                a.stats.physRamMultiplier *
+                (aFwdDot > 0.45 ? 1.32 : 0.78) *
+                (a.isBoosting ? 1.25 : 1.0);
+              const rawDmgToA =
+                (closingSpeed - 6) *
+                modeScale *
+                b.stats.physRamMultiplier *
+                (bFwdDot > 0.45 ? 1.32 : 0.78) *
+                (b.isBoosting ? 1.25 : 1.0);
+
+              const dmgToB = Math.min(b.maxHp * 0.14, Math.max(12, rawDmgToB));
+              const dmgToA = Math.min(a.maxHp * 0.14, Math.max(12, rawDmgToA));
 
               if (b.damageCooldown <= 0) {
-                b.damageCooldown = 0.25;
+                b.damageCooldown = 0.55;
                 const bWrecked = b.applyDamage(dmgToB, impactPt, this.debris, a);
-                if (a.isPlayer && this.mode === 'derby') {
-                  this.score += Math.round(dmgToB * 10);
+                if (a.isPlayer && isBattleMode) {
+                  this.score += Math.round(dmgToB * 5);
                 }
                 if (bWrecked) {
                   this.handleWreckEvent(b, a);
@@ -975,10 +1141,10 @@ export class GameWorldController {
               }
 
               if (a.damageCooldown <= 0) {
-                a.damageCooldown = 0.25;
+                a.damageCooldown = 0.55;
                 const aWrecked = a.applyDamage(dmgToA, impactPt, this.debris, b);
-                if (b.isPlayer && this.mode === 'derby') {
-                  this.score += Math.round(dmgToA * 10);
+                if (b.isPlayer && isBattleMode) {
+                  this.score += Math.round(dmgToA * 5);
                 }
                 if (aWrecked) {
                   this.handleWreckEvent(a, b);
@@ -986,10 +1152,10 @@ export class GameWorldController {
               }
 
               if (a.isPlayer || b.isPlayer) {
-                const intensity = Math.min(1.2, closingSpeed / 28);
-                this.cameraShake = Math.max(this.cameraShake, intensity * 0.9);
+                const intensity = Math.min(1.2, closingSpeed / 34);
+                this.cameraShake = Math.max(this.cameraShake, intensity * 0.85);
                 sound.playCrash(intensity);
-                if (navigator.vibrate) navigator.vibrate(Math.round(45 * intensity));
+                if (navigator.vibrate) navigator.vibrate(Math.round(40 * intensity));
               }
             }
           }
@@ -997,11 +1163,11 @@ export class GameWorldController {
       }
     }
 
-    // 2. Arena walls & central smash pillar (or Race track soft guardrails)
+    // 2. Arena walls, smash pillar, spring bounce pads, stunt rings, boost pads & pickups
     for (const v of this.vehicles) {
       if (v.wrecked) continue;
 
-      if (this.mode === 'derby' || this.mode === 'freeroam') {
+      if (this.mode !== 'race') {
         const dist = Math.hypot(v.position.x, v.position.z);
         const maxR = ARENA_RADIUS - v.radius - 1.2;
         if (dist > maxR) {
@@ -1013,13 +1179,14 @@ export class GameWorldController {
           if (outSpeed > 0) {
             v.velocity.x -= nx * outSpeed * 1.45;
             v.velocity.z -= nz * outSpeed * 1.45;
-            if (outSpeed > 18 && this.mode === 'derby' && v.damageCooldown <= 0) {
-              v.damageCooldown = 0.35;
+            if (outSpeed > 26 && isBattleMode && v.damageCooldown <= 0) {
+              v.damageCooldown = 0.65;
               const wallPt = new THREE.Vector3(nx * ARENA_RADIUS, 1.2, nz * ARENA_RADIUS);
-              const wrecked = v.applyDamage((outSpeed - 14) * 0.75, wallPt, this.debris, v.lastHitBy);
+              const wallDmg = Math.min(v.maxHp * 0.08, (outSpeed - 20) * 1.1);
+              const wrecked = v.applyDamage(wallDmg, wallPt, this.debris, v.lastHitBy);
               if (v.isPlayer) {
-                sound.playCrash(0.6);
-                this.cameraShake = Math.max(this.cameraShake, 0.5);
+                sound.playCrash(0.55);
+                this.cameraShake = Math.max(this.cameraShake, 0.45);
               }
               if (wrecked) this.handleWreckEvent(v, v.lastHitBy);
             }
@@ -1027,7 +1194,7 @@ export class GameWorldController {
         }
 
         // Central Smash Pillar collision
-        if (this.pillarRadius > 0) {
+        if (this.pillarRadius > 0 && v.position.y < 14) {
           const minPillar = this.pillarRadius + v.radius;
           if (dist < minPillar && dist > 0.01) {
             const nx = v.position.x / dist;
@@ -1038,26 +1205,64 @@ export class GameWorldController {
             if (inSpeed > 0) {
               v.velocity.x += nx * inSpeed * 1.5;
               v.velocity.z += nz * inSpeed * 1.5;
-              if (inSpeed > 15 && v.isPlayer) {
+              if (inSpeed > 18 && v.isPlayer) {
                 sound.playCrash(0.55);
                 this.cameraShake = Math.max(this.cameraShake, 0.45);
               }
             }
           }
         }
-      } else if (this.mode === 'race' && this.trackCurve) {
-        // Keep racers near track corridor & update spline lap progression
+      } else if (this.trackCurve) {
         this.updateRaceSplineProgress(v);
+      }
+
+      // Giant Coiled SPRING BOUNCE PADS!
+      for (const sp of this.springPads) {
+        if (v.position.y > 3.2) continue;
+        const dx = v.position.x - sp.pos.x;
+        const dz = v.position.z - sp.pos.z;
+        if (dx * dx + dz * dz < sp.radius * sp.radius && v.vy < 12) {
+          v.vy = sp.power + v.stats.springCount * 3.2;
+          v.grounded = false;
+          v.boost = Math.min(100, v.boost + 35);
+          const fwd = v.getForwardVector();
+          v.velocity.addScaledVector(fwd, 12);
+          sp.bounceAnim = 1.0;
+          this.debris.spawnSparks(sp.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), 18);
+          if (v.isPlayer) {
+            sound.playBoing();
+            this.score += 250;
+            this.showBanner('MEGA SPRING BOUNCE! 🌀');
+            if (navigator.vibrate) navigator.vibrate(35);
+          }
+        }
+      }
+
+      // Floating Golden STUNT RINGS in mid-air!
+      for (const ring of this.stuntRings) {
+        if (ring.cooldown > 0) continue;
+        if (v.position.distanceTo(ring.pos) < ring.radius) {
+          ring.cooldown = 3.0;
+          v.boost = 100;
+          this.debris.spawnSparks(ring.pos, 26);
+          if (v.isPlayer) {
+            sound.playRingChime();
+            this.score += 1000;
+            this.showBanner('STUNT RING! +1,000 • FULL BOOST! ⭐');
+            if (navigator.vibrate) navigator.vibrate(45);
+          }
+        }
       }
 
       // Boost Pads
       for (const pad of this.boostPads) {
+        if (v.position.y > 2.5) continue;
         if (v.position.distanceToSquared(pad.pos) < pad.radius * pad.radius) {
-          v.boost = Math.min(100, v.boost + 35);
+          v.boost = Math.min(100, v.boost + 45);
           const fwd = v.getForwardVector();
           const curSpd = v.getSpeed();
-          if (curSpd < v.stats.physMaxSpeed + 18) {
-            v.velocity.addScaledVector(fwd, 14);
+          if (curSpd < v.stats.physMaxSpeed + 28) {
+            v.velocity.addScaledVector(fwd, 18);
           }
           if (v.isPlayer && !this.eventBannerTimer) {
             sound.playPickup(false);
@@ -1070,20 +1275,20 @@ export class GameWorldController {
         if (p.cooldown > 0) continue;
         const dx = v.position.x - p.pos.x;
         const dz = v.position.z - p.pos.z;
-        if (dx * dx + dz * dz < 11) {
-          p.cooldown = 12;
+        if (dx * dx + dz * dz < 14 && v.position.y < 5) {
+          p.cooldown = 7.5;
           p.mesh.visible = false;
           if (p.type === 'repair') {
-            v.repair(0.45);
+            v.repair(0.55);
             if (v.isPlayer) {
               sound.playPickup(true);
-              this.showBanner('BRICKS REPAIRED +45%');
+              this.showBanner('BRICKS REPAIRED +55% 🔧');
             }
           } else {
             v.boost = 100;
             if (v.isPlayer) {
               sound.playPickup(false);
-              this.showBanner('NITRO FULL!');
+              this.showBanner('NITRO FULL! ⚡');
             }
           }
         }
@@ -1093,7 +1298,7 @@ export class GameWorldController {
     // 3. Knockable orange traffic cones
     for (const c of this.cones) {
       for (const v of this.vehicles) {
-        if (v.wrecked) continue;
+        if (v.wrecked || v.position.y > 3.5) continue;
         const dx = c.pos.x - v.position.x;
         const dz = c.pos.z - v.position.z;
         const r = v.radius + 0.6;
@@ -1110,7 +1315,6 @@ export class GameWorldController {
     const N = this.trackSamples.length;
     if (N === 0) return;
 
-    // Local search around current splineT (fast + prevents shortcut jumping!)
     const curIdx = Math.floor(((v.splineT % 1) + 1) % 1 * N);
     let bestIdx = curIdx;
     let bestDistSq = Infinity;
@@ -1144,7 +1348,6 @@ export class GameWorldController {
     v.splineT = newT;
     v.totalProgress += deltaT;
 
-    // Off-road drag + soft canyon wall boundary
     const dist = Math.sqrt(bestDistSq);
     if (dist > this.trackHalfWidth + 1.5) {
       v.velocity.multiplyScalar(0.985);
@@ -1159,7 +1362,6 @@ export class GameWorldController {
       v.velocity.multiplyScalar(0.75);
     }
 
-    // Check race finish
     if (!v.finished && v.totalProgress >= TOTAL_LAPS) {
       v.finished = true;
       v.finishTime = this.elapsedTime;
@@ -1170,6 +1372,7 @@ export class GameWorldController {
         this.finishMessage = pos === 1 ? '1ST PLACE VICTORY!' : `FINISHED #${pos}!`;
         this.finishSubtext = `Time: ${this.elapsedTime.toFixed(2)}s • ${this.player.getBricksRemaining()}/${this.player.getBricksTotal()} bricks intact`;
         sound.playVictory();
+        this.onMatchEnd?.(this.kos, this.won);
       }
     }
   }
@@ -1183,28 +1386,30 @@ export class GameWorldController {
       this.won = false;
       this.finishMessage = 'VEHICLE WRECKED!';
       this.finishSubtext = `Score: ${this.score.toLocaleString()} • KOs: ${this.kos} • Upgrade armor in the Garage!`;
+      this.onMatchEnd?.(this.kos, false);
       return;
     }
 
     if (attacker && attacker.isPlayer) {
       this.kos++;
       this.score += 1000 * this.wave;
-      this.player.boost = Math.min(100, this.player.boost + 40);
+      this.player.boost = Math.min(100, this.player.boost + 45);
       this.showBanner(`WRECKED ${victim.name.toUpperCase()}! +${1000 * this.wave}`);
     } else {
       this.showBanner(`${victim.name.toUpperCase()} WRECKED!`);
     }
 
-    // Check if player is the last vehicle standing!
-    if (this.mode === 'derby') {
+    if (this.mode === 'derby' || this.mode === 'family') {
       const aliveRivals = this.vehicles.filter((v) => !v.isPlayer && !v.wrecked).length;
       if (aliveRivals === 0 && !this.finished) {
         this.finished = true;
         this.won = true;
         this.score += 2500 * this.wave;
-        this.finishMessage = `WAVE ${this.wave} CHAMPION!`;
-        this.finishSubtext = `Total Score: ${this.score.toLocaleString()} • KOs: ${this.kos} • Ready for Wave ${this.wave + 1}?`;
+        this.finishMessage =
+          this.mode === 'family' ? '🏆 FAMILY CLASH CHAMPION!' : `WAVE ${this.wave} CHAMPION!`;
+        this.finishSubtext = `Total Score: ${this.score.toLocaleString()} • KOs: ${this.kos}`;
         sound.playVictory();
+        this.onMatchEnd?.(this.kos, true);
       }
     }
   }
@@ -1402,6 +1607,23 @@ export class GameWorldController {
       c.mesh.position.copy(c.pos);
     }
 
+    // Animate Bounce Spring Pads & Floating Golden Stunt Rings!
+    for (const sp of this.springPads) {
+      if (sp.bounceAnim > 0) {
+        sp.bounceAnim = Math.max(0, sp.bounceAnim - dt * 3.8);
+        const stretch = 1 + Math.sin(sp.bounceAnim * Math.PI * 2) * 0.42;
+        sp.mesh.scale.set(1, stretch, 1);
+      } else {
+        sp.mesh.scale.set(1, 1, 1);
+      }
+    }
+    for (const ring of this.stuntRings) {
+      if (ring.cooldown > 0) ring.cooldown = Math.max(0, ring.cooldown - dt);
+      ring.mesh.rotation.z += dt * 1.4;
+      const pulse = 1 + Math.sin(this.elapsedTime * 4) * 0.04;
+      ring.mesh.scale.setScalar(ring.cooldown > 0 ? 0.85 : pulse);
+    }
+
     // Update all vehicles
     const playerInput = this.getPlayerInput();
     this.vehicles.forEach((v, idx) => {
@@ -1413,6 +1635,16 @@ export class GameWorldController {
         input = this.mode === 'race' ? this.computeRaceAiInput(v, idx) : this.computeDerbyAiInput(v);
       }
       v.updatePhysics(dt, input, gh, this.debris, canDrive);
+      if (v.isPlayer) {
+        if (v.justHopped) {
+          sound.playBoing();
+        }
+        if (v.justLandedAirTime > 1.1) {
+          const pts = Math.round(v.justLandedAirTime * 350);
+          this.score += pts;
+          this.showBanner(`BIG AIR ${v.justLandedAirTime.toFixed(1)}s! +${pts}`);
+        }
+      }
     });
 
     this.resolveCollisions();

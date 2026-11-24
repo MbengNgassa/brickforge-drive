@@ -946,6 +946,106 @@ body,
   border-color: rgba(248, 113, 113, 0.6);
 }
 
+.touch-btn.hop {
+  width: 58px;
+  height: 64px;
+  background: rgba(244, 190, 23, 0.28);
+  border-color: rgba(250, 204, 21, 0.78);
+  color: #fef08a;
+}
+
+.driver-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 2px solid var(--accent-yellow);
+  background: rgba(28, 38, 54, 0.92);
+  color: var(--text-main);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.driver-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.driver-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(25, 34, 48, 0.9);
+  border: 1px solid var(--panel-border);
+}
+
+.driver-row.active {
+  background: rgba(244, 190, 23, 0.14);
+}
+
+.driver-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.driver-row-title {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.driver-row-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.driver-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.active-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: var(--accent-yellow);
+  color: #11161f;
+}
+
+.add-driver-box {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--panel-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.avatar-select {
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(30, 40, 56, 0.95);
+  color: #ffffff;
+  border: 1px solid var(--panel-border);
+  font-size: 18px;
+  padding: 0 6px;
+}
+
 /* =========================================================================
    MODALS
    ========================================================================= */
@@ -1176,5 +1276,24 @@ body,
 
   .hud-metric-value {
     font-size: 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  .hide-xs {
+    display: none !important;
+  }
+
+  .driver-pill {
+    max-width: 112px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 7px;
+    font-size: 11.5px;
+  }
+
+  .util-group .btn {
+    padding: 0 7px;
+    min-width: 30px;
   }
 }

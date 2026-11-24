@@ -107,6 +107,24 @@ export function getPartIconSvg(partId: BrickPartId, colorHex: string): string {
     </svg>`;
   }
 
+  if (partId === 'mega_rocket') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <polygon points="2,26 20,12 20,40" fill="#38e8ff" opacity="0.92"/>
+      <polygon points="8,26 20,18 20,34" fill="#ffffff"/>
+      <polygon points="18,12 36,16 36,36 18,40" fill="#334155" stroke="#cbd5e1" stroke-width="1.5"/>
+      <rect x="35" y="10" width="22" height="32" rx="5" fill="${c}"/>
+      <rect x="38" y="14" width="16" height="6" rx="2" fill="#f4be17"/>
+    </svg>`;
+  }
+
+  if (partId === 'jump_springs') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <rect x="14" y="10" width="36" height="8" rx="3" fill="${c}"/>
+      <rect x="14" y="36" width="36" height="8" rx="3" fill="#475569"/>
+      <path d="M18,20 L46,24 L18,29 L46,34" fill="none" stroke="#f4be17" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
   if (partId === 'armor_plate') {
     return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
       <rect x="14" y="14" width="36" height="28" rx="4" fill="${c}"/>

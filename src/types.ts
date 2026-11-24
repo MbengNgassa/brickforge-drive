@@ -33,7 +33,10 @@ export type BrickPartId =
   | 'roll_cage'
   | 'saw_blade'
   | 'bull_horns'
-  | 'tank_tread';
+  | 'tank_tread'
+  | 'plate_6x8'
+  | 'mega_rocket'
+  | 'jump_springs';
 
 export interface BrickPartDef {
   id: BrickPartId;
@@ -56,6 +59,7 @@ export interface BrickPartDef {
   isWheel?: boolean;
   wheelRadius?: number;
   isThruster?: boolean;
+  isSpring?: boolean;
   isTranslucent?: boolean;
   hasStudsTop?: boolean;
   fixedColor?: string;
@@ -83,12 +87,24 @@ export interface VehicleBlueprint {
   createdAt?: number;
 }
 
+export interface DriverProfile {
+  id: string;
+  username: string;
+  avatar: string;
+  accentColor: string;
+  activeVehicle: VehicleBlueprint;
+  savedVehicles: VehicleBlueprint[];
+  totalKos: number;
+  totalWins: number;
+}
+
 export interface VehicleStats {
   brickCount: number;
   maxBricks: number;
   mass: number;
   wheelCount: number;
   thrusterCount: number;
+  springCount: number;
   topSpeed: number; // 0..100 display rating
   acceleration: number; // 0..100 display rating
   handling: number; // 0..100 display rating
@@ -102,6 +118,7 @@ export interface VehicleStats {
   physMaxHp: number;
   physRamMultiplier: number;
   physBoostPower: number;
+  physJumpImpulse: number;
 }
 
 export interface ColorDef {
@@ -112,7 +129,7 @@ export interface ColorDef {
   translucent?: boolean;
 }
 
-export type GameMode = 'garage' | 'race' | 'derby' | 'freeroam';
+export type GameMode = 'garage' | 'race' | 'derby' | 'family' | 'freeroam';
 
 export type BuilderTool = 'place' | 'move' | 'paint' | 'erase';
 

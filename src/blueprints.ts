@@ -439,15 +439,268 @@ export const STARTER_BLUEPRINTS: VehicleBlueprint[] = [
       b('wheel_offroad', 2, -1, -3, '#f0f3f7'),
     ],
   },
+
+  // 11. TITAN FORTRESS (Colossal 6x8 wide armored juggernaut with Twin War Turrets & Dual Mega-Rockets!)
+  {
+    id: 'titan-fortress',
+    name: 'Titan Fortress',
+    tagline: 'Colossal 6×8 wide boss fortress with twin war turrets & dual mega-rockets',
+    bricks: [
+      // Giant 6x8 Titan baseplate + rear deck extension
+      b('plate_6x8', -3, 0, -2, '#1d2128'),
+      b('plate_4x6', -2, 0, -8, '#1d2128'),
+      // Front Spike Plow & side armor
+      b('spike_plow', -2, 0, 6, '#cfd8e3'),
+      b('armor_plate', -3, 1, 4, '#1d5fd6'),
+      b('armor_plate', -1, 1, 4, '#f4be17'),
+      b('armor_plate', 1, 1, 4, '#1d5fd6'),
+      b('armor_plate', -3, 1, 1, '#1d2128'),
+      b('armor_plate', -1, 1, 1, '#1d5fd6'),
+      b('armor_plate', 1, 1, 1, '#1d2128'),
+      b('armor_plate', -3, 1, -2, '#1d5fd6'),
+      b('armor_plate', -1, 1, -2, '#f4be17'),
+      b('armor_plate', 1, 1, -2, '#1d5fd6'),
+      // Rear armor deck & Jump Springs
+      b('armor_plate', -2, 1, -5, '#1d2128'),
+      b('armor_plate', 0, 1, -5, '#1d2128'),
+      b('jump_springs', -2, 1, -7, '#f4be17'),
+      b('jump_springs', 0, 1, -7, '#f4be17'),
+      // Upper Citadel with TWIN War Turrets + Roll Cage!
+      b('windshield_2x4', -2, 4, 4, '#cfd8e3'),
+      b('turret_blaster', -3, 4, -1, '#1d5fd6'),
+      b('turret_blaster', 1, 4, -1, '#1d5fd6'),
+      b('roll_cage', -2, 4, -4, '#f4be17'),
+      // Dual Giant Mega-Rockets!
+      b('mega_rocket', -2, 3, -9, '#d92626'),
+      b('mega_rocket', 0, 3, -9, '#d92626'),
+      // Wide-stance Armored Tank Treads
+      b('tank_tread', -5, -1, 2, '#f4be17'),
+      b('tank_tread', 3, -1, 2, '#f4be17'),
+      b('tank_tread', -5, -1, -5, '#f4be17'),
+      b('tank_tread', 3, -1, -5, '#f4be17'),
+    ],
+  },
+
+  // 12. THUNDER ROCKET JET (Hyper-fast twin Mega-Rocket speed demon!)
+  {
+    id: 'thunder-rocket',
+    name: 'Thunder Rocket',
+    tagline: 'Blistering 290+ km/h dragster powered by twin Giant Mega-Rockets',
+    bricks: [
+      b('plate_4x6', -2, 0, -4, '#1d2128'),
+      b('plate_4x6', -2, 0, 2, '#1d2128'),
+      b('plate_2x4', -1, 0, 8, '#f4be17'),
+      // Razor aero nose & headlights
+      b('slope_2x3', -2, 1, 6, '#ee6a18'),
+      b('slope_2x3', 0, 1, 6, '#ee6a18'),
+      b('headlight_1x2', -1, 1, 9, '#f4be17'),
+      // Cockpit + Jump Springs
+      b('windshield_2x4', -2, 1, 4, '#1d5fd6'),
+      b('seat_2x2', -1, 1, 1, '#d92626'),
+      b('jump_springs', -1, 4, -2, '#f4be17'),
+      // Twin side V8 stacks + huge spoiler
+      b('exhaust_pipes', -3, 2, 1, '#cfd8e3'),
+      b('exhaust_pipes', 2, 2, 1, '#cfd8e3'),
+      b('brick_2x4', -2, 1, -4, '#ee6a18'),
+      b('brick_2x4', 0, 1, -4, '#ee6a18'),
+      b('spoiler_1x4', -2, 4, -4, '#1d2128'),
+      // TWIN GIANT MEGA-ROCKETS + outboard plasma boosters!
+      b('mega_rocket', -2, 1, -7, '#d92626'),
+      b('mega_rocket', 0, 1, -7, '#d92626'),
+      b('thruster_jet', -4, 2, -6, '#f4be17'),
+      b('thruster_jet', 2, 2, -6, '#f4be17'),
+      // Street Racing Wheels
+      b('wheel_street', -4, -1, 5, '#f4be17'),
+      b('wheel_street', 2, -1, 5, '#f4be17'),
+      b('wheel_street', -4, -1, -3, '#f4be17'),
+      b('wheel_street', 2, -1, -3, '#f4be17'),
+    ],
+  },
+
+  // 13. SKY HOPPER STUNT KING (Built for insane big-air jumps with 4 Hydraulic Jump Springs!)
+  {
+    id: 'sky-hopper',
+    name: 'Sky Hopper Stunt',
+    tagline: 'Quad Hydraulic Jump Springs built to fly through every Stunt Ring',
+    bricks: [
+      b('plate_4x6', -2, 0, -4, '#1d2128'),
+      b('plate_4x6', -2, 0, 2, '#1d2128'),
+      // Quad Hydraulic Jump Springs for massive vertical hop power!
+      b('jump_springs', -2, 1, 5, '#6ec41d'),
+      b('jump_springs', 0, 1, 5, '#6ec41d'),
+      b('jump_springs', -2, 1, -3, '#6ec41d'),
+      b('jump_springs', 0, 1, -3, '#6ec41d'),
+      // Bright lime & white stunt body + roll cage
+      b('bull_horns', -2, 1, 8, '#f4be17'),
+      b('brick_2x4', -2, 1, 1, '#f0f3f7'),
+      b('brick_2x4', 0, 1, 1, '#f0f3f7'),
+      b('windshield_2x4', -2, 4, 3, '#1d5fd6'),
+      b('roll_cage', -2, 4, 0, '#6ec41d'),
+      b('spoiler_1x4', -2, 4, -3, '#f4be17'),
+      // Mega-Rocket + twin jets for mid-air thrust!
+      b('mega_rocket', -1, 1, -7, '#6ec41d'),
+      b('thruster_jet', -3, 2, -5, '#1d2128'),
+      b('thruster_jet', 1, 2, -5, '#1d2128'),
+      // Chunky Off-Road Stunt Wheels
+      b('wheel_offroad', -4, -1, 5, '#6ec41d'),
+      b('wheel_offroad', 2, -1, 5, '#6ec41d'),
+      b('wheel_offroad', -4, -1, -3, '#6ec41d'),
+      b('wheel_offroad', 2, -1, -3, '#6ec41d'),
+    ],
+  },
+
+  // 14. GIGA SHREDDER BOSS (Wide 6x8 Buzzsaw + War Turret + Monster Wheels Boss Rig!)
+  {
+    id: 'giga-shredder',
+    name: 'Giga Shredder Boss',
+    tagline: '6×8 widebody demolition boss with buzzsaw, turret & monster tires',
+    bricks: [
+      b('plate_6x8', -3, 0, -2, '#1d2128'),
+      b('plate_4x6', -2, 0, -8, '#1d2128'),
+      // Front Spinning Buzzsaw!
+      b('saw_blade', -2, 0, 6, '#d92626'),
+      // Wide armored body in black, red & chrome
+      b('armor_plate', -3, 1, 4, '#d92626'),
+      b('armor_plate', -1, 1, 4, '#1d2128'),
+      b('armor_plate', 1, 1, 4, '#d92626'),
+      b('armor_plate', -3, 1, 1, '#1d2128'),
+      b('armor_plate', -1, 1, 1, '#d92626'),
+      b('armor_plate', 1, 1, 1, '#1d2128'),
+      b('armor_plate', -3, 1, -2, '#d92626'),
+      b('armor_plate', -1, 1, -2, '#1d2128'),
+      b('armor_plate', 1, 1, -2, '#d92626'),
+      b('armor_plate', -2, 1, -5, '#1d2128'),
+      b('armor_plate', 0, 1, -5, '#1d2128'),
+      // Roof War Turret + Chrome V8 Stacks + Roll Cage
+      b('turret_blaster', -1, 4, 2, '#d92626'),
+      b('roll_cage', -2, 4, -2, '#cfd8e3'),
+      b('exhaust_pipes', -3, 4, -2, '#cfd8e3'),
+      b('exhaust_pipes', 2, 4, -2, '#cfd8e3'),
+      b('jump_springs', -1, 1, -7, '#f4be17'),
+      // Twin Mega-Rockets!
+      b('mega_rocket', -2, 3, -9, '#ee6a18'),
+      b('mega_rocket', 0, 3, -9, '#ee6a18'),
+      // Colossal Monster Wheels
+      b('wheel_monster', -5, -1, 3, '#d92626'),
+      b('wheel_monster', 3, -1, 3, '#d92626'),
+      b('wheel_monster', -5, -1, -5, '#d92626'),
+      b('wheel_monster', 3, -1, -5, '#d92626'),
+    ],
+  },
 ];
 
 export const AI_RACER_PROFILES = [
-  { name: 'Sawblade Sid', blueprintId: 'sawblade-warrig', tint: '#d92626' },
-  { name: 'Commander Rex', blueprintId: 'doomsday-tank', tint: '#1d7a42' },
-  { name: 'Rampage Rick', blueprintId: 'monster-rampage-6x6', tint: '#e3b23c' },
-  { name: 'Apex Nova', blueprintId: 'apex-hypercar', tint: '#6ec41d' },
-  { name: 'Vinny Unleaded', blueprintId: 'turbo-interceptor', tint: '#ee6a18' },
-  { name: 'Baja Blaze', blueprintId: 'baja-striker', tint: '#f4be17' },
-  { name: 'Crusher Carl', blueprintId: 'iron-crusher', tint: '#ff3344' },
-  { name: 'Larry Leadfoot', blueprintId: 'canyon-buggy', tint: '#38bdf8' },
+  { name: 'Titan Rex', blueprintId: 'titan-fortress', tint: '#1d5fd6' },
+  { name: 'Sawblade Sid', blueprintId: 'giga-shredder', tint: '#d92626' },
+  { name: 'Thunder Max', blueprintId: 'thunder-rocket', tint: '#ee6a18' },
+  { name: 'Sky Hopper', blueprintId: 'sky-hopper', tint: '#6ec41d' },
+  { name: 'Rampage Rick', blueprintId: 'monster-rampage-6x6', tint: '#f4be17' },
+  { name: 'Commander Tank', blueprintId: 'doomsday-tank', tint: '#22c55e' },
+  { name: 'Apex Nova', blueprintId: 'apex-hypercar', tint: '#38bdf8' },
+  { name: 'Crusher Carl', blueprintId: 'sawblade-warrig', tint: '#ff3344' },
 ];
+
+const MIX_PALETTES: [string, string, string][] = [
+  ['#d92626', '#1d2128', '#f4be17'],
+  ['#1d5fd6', '#f0f3f7', '#ee6a18'],
+  ['#6ec41d', '#1d2128', '#cfd8e3'],
+  ['#ee6a18', '#1d2128', '#f4be17'],
+  ['#f4be17', '#1d2128', '#d92626'],
+  ['#f0f3f7', '#1d5fd6', '#d92626'],
+];
+
+const MIX_ADJ = ['Turbo', 'Mega', 'Hyper', 'Nitro', 'Steel', 'Thunder', 'Shadow', 'Blaze', 'Titan', 'Rocket'];
+const MIX_NOUN = ['Crusher', 'Viper', 'Shredder', 'Beast', 'Raptor', 'Jumper', 'Phantom', 'Striker', 'Tank', 'Drifter'];
+
+/**
+ * Generates an instant, 100% overlap-free wild hero vehicle mix
+ * combining random chassis, weapons, roof rigs, wheels/treads, springs, and mega-rockets!
+ */
+export function createRandomHeroMix(): VehicleBlueprint {
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const [primary, secondary, accent] = pick(MIX_PALETTES);
+  const wheelType = pick<BrickPartId>(['wheel_monster', 'tank_tread', 'wheel_offroad', 'wheel_street']);
+  const frontWeapon = pick<BrickPartId>(['saw_blade', 'spike_plow', 'bull_horns', 'bumper_ram']);
+  const roofGear = pick<'turret' | 'cage' | 'aero'>(['turret', 'cage', 'aero']);
+  const useMegaRocket = Math.random() > 0.35;
+  const addSprings = Math.random() > 0.3;
+
+  const bricks: PlacedBrick[] = [
+    // Wide armored base
+    b('plate_6x8', -3, 0, -2, secondary),
+    b('plate_4x6', -2, 0, -8, secondary),
+    // Front weapon
+    b(frontWeapon, -2, 0, 6, accent),
+    // Main armored body
+    b('armor_plate', -3, 1, 4, primary),
+    b('armor_plate', -1, 1, 4, secondary),
+    b('armor_plate', 1, 1, 4, primary),
+    b('armor_plate', -3, 1, 1, secondary),
+    b('armor_plate', -1, 1, 1, primary),
+    b('armor_plate', 1, 1, 1, secondary),
+    b('armor_plate', -3, 1, -2, primary),
+    b('armor_plate', -1, 1, -2, secondary),
+    b('armor_plate', 1, 1, -2, primary),
+    b('armor_plate', -2, 1, -5, primary),
+    b('armor_plate', 0, 1, -5, primary),
+  ];
+
+  // Jump Springs or rear deck plates
+  if (addSprings) {
+    bricks.push(b('jump_springs', -2, 1, -7, accent), b('jump_springs', 0, 1, -7, accent));
+  } else {
+    bricks.push(b('plate_2x2', -2, 1, -7, secondary), b('plate_2x2', 0, 1, -7, secondary));
+  }
+
+  // Roof mix
+  if (roofGear === 'turret') {
+    bricks.push(
+      b('turret_blaster', -1, 4, 2, primary),
+      b('roll_cage', -2, 4, -2, accent),
+      b('exhaust_pipes', -3, 4, -2, '#cfd8e3'),
+      b('exhaust_pipes', 2, 4, -2, '#cfd8e3')
+    );
+  } else if (roofGear === 'cage') {
+    bricks.push(
+      b('windshield_2x4', -2, 4, 3, '#1d5fd6'),
+      b('roll_cage', -2, 4, 0, accent),
+      b('spoiler_1x4', -2, 4, -4, primary)
+    );
+  } else {
+    bricks.push(
+      b('slope_2x2', -2, 4, 4, primary),
+      b('slope_2x2', 0, 4, 4, primary),
+      b('windshield_2x4', -2, 4, 1, '#1d5fd6'),
+      b('spoiler_1x4', -2, 4, -4, accent),
+      b('exhaust_pipes', -3, 4, 0, '#cfd8e3'),
+      b('exhaust_pipes', 2, 4, 0, '#cfd8e3')
+    );
+  }
+
+  // Rear propulsion
+  if (useMegaRocket) {
+    bricks.push(b('mega_rocket', -2, 3, -9, accent), b('mega_rocket', 0, 3, -9, accent));
+  } else {
+    bricks.push(
+      b('thruster_jet', -2, 3, -8, accent),
+      b('thruster_jet', 0, 3, -8, accent),
+      b('thruster_jet', -4, 3, -6, primary),
+      b('thruster_jet', 2, 3, -6, primary)
+    );
+  }
+
+  // Wide stance wheels or tank treads
+  bricks.push(
+    b(wheelType, -5, -1, 2, accent),
+    b(wheelType, 3, -1, 2, accent),
+    b(wheelType, -5, -1, -5, accent),
+    b(wheelType, 3, -1, -5, accent)
+  );
+
+  return {
+    id: makeUid('mix'),
+    name: `${pick(MIX_ADJ)} ${pick(MIX_NOUN)}`,
+    tagline: 'Custom random hero combo — tweak any brick or press Mix again!',
+    bricks,
+  };
+}

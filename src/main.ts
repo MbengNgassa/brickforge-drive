@@ -7,20 +7,39 @@ import {
   PARTS_MAP,
   calculateVehicleStats,
 } from './catalog';
-import { STARTER_BLUEPRINTS, cloneBlueprint, makeUid } from './blueprints';
+import {
+  STARTER_BLUEPRINTS,
+  cloneBlueprint,
+  createRandomHeroMix,
+  makeUid,
+} from './blueprints';
 import { getPartIconSvg } from './partIcons';
 import { GraphicsEngine } from './engine';
 import { GarageController } from './garage';
 import { GameWorldController } from './gameWorld';
 import { sound } from './audio';
 import {
-  deleteSavedVehicle,
-  loadActiveVehicle,
-  loadSavedVehicles,
-  saveActiveVehicle,
-  saveCustomVehicle,
+  DRIVER_AVATARS,
+  DRIVER_COLORS,
+  createDriverProfile,
+  deleteDriverProfile,
+  deleteVehicleSlotForCurrentProfile,
+  getActiveProfile,
+  loadProfiles,
+  recordDriverStats,
+  saveActiveVehicleForCurrentProfile,
+  saveVehicleSlotForCurrentProfile,
+  setActiveProfileId,
+  updateDriverProfile,
 } from './storage';
-import type { BrickCategory, GameMode, GraphicsQuality, HudState, VehicleBlueprint } from './types';
+import type {
+  BrickCategory,
+  DriverProfile,
+  GameMode,
+  GraphicsQuality,
+  HudState,
+  VehicleBlueprint,
+} from './types';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -37,9 +56,9 @@ class BrickForgeApp {
   private world!: GameWorldController;
 
   private mode: GameMode = 'garage';
-  private activeCategory: BrickCategory = 'bricks';
-  private activeBlueprint: VehicleBlueprint = loadActiveVehicle();
-  private savedVehicles: VehicleBlueprint[] = loadSavedVehicles();
+  private activeCategory: BrickCategory = 'power';
+  private activeProfile: DriverProfile = getActiveProfile();
+  private activeBlueprint: VehicleBlueprint = cloneBlueprint(this.activeProfile.activeVehicle);
 
   private deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
   private isInstalledStandalone = false;
@@ -84,7 +103,10 @@ class BrickForgeApp {
     const viewport = document.getElementById('viewport')!;
     this.engine = new GraphicsEngine(viewport);
     this.garage = new GarageController(this.engine, () => this.onGarageStateChanged());
-    this.world = new GameWorldController(this.engine);
+    this.world = new GameWorldController(this.engine, (kos, won) => {
+      recordDriverStats(this.activeProfile.id, kos, won);
+      this.activeProfile = getActiveProfile();
+    });
 
     this.enterGarage();
     requestAnimationFrame(this.loop);
@@ -107,37 +129,41 @@ class BrickForgeApp {
     this.root.innerHTML = `
       <div id="viewport"></div>
 
-      <!-- GARAGE BUILDER UI (Mobile-first unobstructed 3D stage) -->
+      <!-- GARAGE BUILDER UI -->
       <div id="garage-ui" class="ui-layer">
         <header class="top-bar">
           <div class="panel brand-group interactive">
-            <div class="brand-logo">
-              <div class="brand-mark"><span></span><span></span><span></span><span></span></div>
-              <h1 class="brand-title">BrickForge</h1>
-            </div>
+            <button id="btn-driver" class="driver-pill" title="Switch child profile / Family Leaderboard">
+              <span id="driver-avatar">🦁</span>
+              <span id="driver-name">Driver 1</span>
+            </button>
             <input id="vehicle-name" class="vehicle-name-input desktop-only" type="text" maxlength="24" aria-label="Vehicle Name" />
-            <span id="brick-counter" class="brick-counter">0 / 250</span>
+            <span id="brick-counter" class="brick-counter hide-xs">0 / 250</span>
           </div>
 
           <div class="panel launch-group desktop-only interactive">
-            <button id="btn-play-race" class="btn btn-primary" title="Race your custom vehicle in Red Rock Canyon">
-              🏁 Race Canyon
+            <button id="btn-play-family" class="btn btn-primary" title="Fight each child's custom vehicles head-to-head!">
+              ⚔️ Family Clash
             </button>
-            <button id="btn-play-derby" class="btn btn-danger" title="Smash rival brick vehicles in the Demolition Bowl">
-              💥 Destruction Derby
+            <button id="btn-play-derby" class="btn btn-danger" title="Mega Coliseum Destruction Derby vs 8 Bosses">
+              💥 Derby
             </button>
-            <button id="btn-play-freeroam" class="btn btn-cyan" title="Open Stunt Park test drive">
-              🚀 Test Drive
+            <button id="btn-play-race" class="btn btn-cyan" title="Race your build through Red Rock Canyon">
+              🏁 Race
+            </button>
+            <button id="btn-play-freeroam" class="btn btn-green" title="Mega Stunt Park with Bounce Springs & Sky Rings">
+              🌀 Stunt Park
             </button>
           </div>
 
           <div class="panel util-group interactive">
-            <button id="btn-blueprints" class="btn" title="Switch cars & saved builds">🚗 Cars</button>
+            <button id="btn-mix-hero" class="btn" title="Generate a wild random hero mix!">🎲<span class="hide-xs"> Mix</span></button>
+            <button id="btn-blueprints" class="btn" title="14 Boss Heroes & Saved Fleet">🚗<span class="hide-xs"> Heroes</span></button>
             <button id="btn-undo" class="btn btn-icon" title="Undo (Ctrl+Z)">↶</button>
             <button id="btn-redo" class="btn btn-icon desktop-only" title="Redo (Ctrl+Y)">↷</button>
-            <button id="btn-install" class="btn btn-cyan desktop-only" title="Install BrickForge locally">⬇ Install</button>
+            <button id="btn-install" class="btn btn-cyan" title="Install BrickForge locally offline">⬇<span class="hide-xs"> Install</span></button>
             <button id="btn-settings" class="btn btn-icon" title="Graphics, Audio & Help">⚙</button>
-            <button id="btn-play-sheet" class="btn btn-primary mobile-only" title="Race or Smash your car!">▶ PLAY</button>
+            <button id="btn-play-sheet" class="btn btn-primary mobile-only" title="Battle, Race, or Stunt Park!">▶ PLAY</button>
           </div>
         </header>
 
@@ -154,7 +180,7 @@ class BrickForgeApp {
         <!-- Bottom Workspace: Nudge Strip + Compact Action Strip + Collapsible Visual Brick Dock -->
         <div class="garage-bottom-stack">
           <div id="nudge-strip" class="panel nudge-strip interactive">
-            <span id="nudge-label" class="nudge-label">Slide</span>
+            <span id="nudge-label" class="nudge-label">Aim Brick</span>
             <button id="nudge-left" class="nudge-btn" title="Move left (←)">◄</button>
             <button id="nudge-fwd" class="nudge-btn" title="Move forward (↑)">▲</button>
             <button id="nudge-back" class="nudge-btn" title="Move back (↓)">▼</button>
@@ -189,7 +215,7 @@ class BrickForgeApp {
         </div>
       </div>
 
-      <!-- DRIVING / RACING / DERBY HUD -->
+      <!-- DRIVING / RACING / DERBY / STUNT PARK HUD -->
       <div id="drive-ui" class="ui-layer hidden">
         <div class="hud-top">
           <div class="panel hud-primary-box" id="hud-primary-box"></div>
@@ -243,7 +269,7 @@ class BrickForgeApp {
         </div>
       </div>
 
-      <!-- MOBILE TOUCH CONTROLS -->
+      <!-- MOBILE TOUCH CONTROLS (with HOP spring jump button!) -->
       <div id="touch-controls" class="touch-controls hidden">
         <div class="touch-cluster">
           <button class="touch-btn" data-touch="left">◄</button>
@@ -252,6 +278,7 @@ class BrickForgeApp {
         </div>
         <div class="touch-cluster">
           <button class="touch-btn brake" data-touch="brake">REV</button>
+          <button class="touch-btn hop" data-touch="jump">⬆ HOP</button>
           <button class="touch-btn boost" data-touch="boost">JET</button>
           <button class="touch-btn gas" data-touch="gas">GAS</button>
         </div>
@@ -276,6 +303,18 @@ class BrickForgeApp {
       this.persistCurrentBuild();
     });
 
+    document.getElementById('btn-driver')!.addEventListener('click', () => this.openDriversModal());
+    document.getElementById('btn-mix-hero')!.addEventListener('click', () => {
+      const mixed = createRandomHeroMix();
+      this.activeBlueprint = mixed;
+      (document.getElementById('vehicle-name') as HTMLInputElement).value = mixed.name;
+      this.garage.loadBricks(mixed.bricks, true);
+      this.garage.recenterCamera();
+      this.garage.showAutoPreview();
+      sound.playRingChime();
+    });
+
+    document.getElementById('btn-play-family')!.addEventListener('click', () => this.launchMode('family', 1));
     document.getElementById('btn-play-race')!.addEventListener('click', () => this.launchMode('race'));
     document.getElementById('btn-play-derby')!.addEventListener('click', () => this.launchMode('derby', 1));
     document.getElementById('btn-play-freeroam')!.addEventListener('click', () => this.launchMode('freeroam'));
@@ -292,9 +331,7 @@ class BrickForgeApp {
       document.getElementById('garage-coach')!.classList.add('hidden');
     });
 
-    document.getElementById('tool-snap')!.addEventListener('click', () => {
-      this.garage.placeCurrentPreview();
-    });
+    document.getElementById('tool-snap')!.addEventListener('click', () => this.garage.placeCurrentPreview());
     document.getElementById('tool-place')!.addEventListener('click', () => this.garage.setTool('place'));
     document.getElementById('tool-move')!.addEventListener('click', () => this.garage.setTool('move'));
     document.getElementById('tool-paint')!.addEventListener('click', () => this.garage.setTool('paint'));
@@ -302,7 +339,6 @@ class BrickForgeApp {
     document.getElementById('tool-rotate')!.addEventListener('click', () => this.garage.rotatePart());
     document.getElementById('tool-mirror')!.addEventListener('click', () => this.garage.toggleMirror());
 
-    // Nudge D-Pad controls (work during placement preview AND after placing in Move mode!)
     document.getElementById('nudge-left')!.addEventListener('click', () => this.garage.nudge(-1, 0, 0));
     document.getElementById('nudge-right')!.addEventListener('click', () => this.garage.nudge(1, 0, 0));
     document.getElementById('nudge-fwd')!.addEventListener('click', () => this.garage.nudge(0, 1, 0));
@@ -310,6 +346,7 @@ class BrickForgeApp {
     document.getElementById('nudge-up')!.addEventListener('click', () => this.garage.nudge(0, 0, 1));
     document.getElementById('nudge-down')!.addEventListener('click', () => this.garage.nudge(0, 0, -1));
     document.getElementById('nudge-delete')!.addEventListener('click', () => this.garage.deleteSelected());
+
     document.getElementById('tool-recenter')!.addEventListener('click', () => {
       this.garage.recenterCamera();
       sound.playUiTick();
@@ -356,44 +393,171 @@ class BrickForgeApp {
     });
   }
 
-  private openPlaySheetModal(): void {
+  private refreshDriverBadge(): void {
+    document.getElementById('driver-avatar')!.textContent = this.activeProfile.avatar;
+    document.getElementById('driver-name')!.textContent = this.activeProfile.username;
+    const pill = document.getElementById('btn-driver')!;
+    pill.style.borderColor = this.activeProfile.accentColor;
+  }
+
+  /**
+   * Kid Driver Profiles & Family Garage Switcher!
+   * Every child gets their own Username, Avatar, Vehicle Garage, Saved Fleet & KO/Win Leaderboard.
+   */
+  private openDriversModal(): void {
     sound.playUiTick();
-    const stats = calculateVehicleStats(this.activeBlueprint.bricks);
+    this.persistCurrentBuild();
+    const profiles = loadProfiles();
+
     this.showModal(`
       <div class="panel modal-card interactive">
         <div class="modal-header">
-          <h2 class="modal-title">Drive "${this.escapeHtml(this.activeBlueprint.name)}"</h2>
+          <h2 class="modal-title">👨‍👩‍👧‍👦 Drivers &amp; Family Garage</h2>
+          <button class="btn btn-icon" data-close-modal>✕</button>
+        </div>
+        <p style="margin:0;font-size:12px;color:#9aa7b8;line-height:1.4">
+          Each child gets their own username &amp; custom vehicle garage. In <b>⚔️ Family Clash</b>, Derby &amp; Race, your kids' vehicles battle each other in the arena!
+        </p>
+
+        <div class="driver-list">
+          ${profiles
+            .map((p) => {
+              const isActive = p.id === this.activeProfile.id;
+              return `
+              <div class="driver-row ${isActive ? 'active' : ''}" style="border-left:4px solid ${p.accentColor}">
+                <div class="driver-row-info">
+                  <div class="driver-row-title">${p.avatar} <b>${this.escapeHtml(p.username)}</b> ${isActive ? '<span class="active-tag">ACTIVE</span>' : ''}</div>
+                  <div class="driver-row-sub">🚗 ${this.escapeHtml(p.activeVehicle.name)} (${p.activeVehicle.bricks.length} bricks) • 🏆 ${p.totalWins} Wins • 💥 ${p.totalKos} KOs</div>
+                </div>
+                <div class="driver-row-actions">
+                  ${
+                    isActive
+                      ? `<button class="btn" data-rename-driver="${p.id}">✏ Rename</button>`
+                      : `<button class="btn btn-primary" data-switch-driver="${p.id}">Select</button>`
+                  }
+                  ${profiles.length > 1 ? `<button class="btn btn-danger btn-icon" data-del-driver="${p.id}" title="Remove driver">✕</button>` : ''}
+                </div>
+              </div>
+            `;
+            })
+            .join('')}
+        </div>
+
+        <div class="add-driver-box">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#9aa7b8;letter-spacing:0.05em">Add New Child / Driver</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input id="new-driver-name" class="vehicle-name-input" style="flex:1;min-width:140px" type="text" maxlength="18" placeholder="Child's username (e.g. Maya)" />
+            <select id="new-driver-avatar" class="avatar-select">
+              ${DRIVER_AVATARS.map((a) => `<option value="${a}">${a}</option>`).join('')}
+            </select>
+            <button id="btn-create-driver" class="btn btn-green">+ Add Driver</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    document.getElementById('btn-create-driver')?.addEventListener('click', () => {
+      const nameEl = document.getElementById('new-driver-name') as HTMLInputElement;
+      const avEl = document.getElementById('new-driver-avatar') as HTMLSelectElement;
+      const color = DRIVER_COLORS[profiles.length % DRIVER_COLORS.length];
+      const created = createDriverProfile(nameEl.value, avEl.value, color);
+      this.switchToProfile(created);
+      this.openDriversModal();
+    });
+
+    this.modalHost.querySelectorAll<HTMLButtonElement>('[data-switch-driver]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = profiles.find((p) => p.id === btn.dataset.switchDriver);
+        if (target) {
+          this.switchToProfile(target);
+          this.closeModal();
+        }
+      });
+    });
+
+    this.modalHost.querySelectorAll<HTMLButtonElement>('[data-rename-driver]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const nextName = window.prompt('Enter driver username:', this.activeProfile.username);
+        if (nextName && nextName.trim()) {
+          this.activeProfile.username = nextName.trim().slice(0, 18);
+          updateDriverProfile(this.activeProfile);
+          this.refreshDriverBadge();
+          this.openDriversModal();
+        }
+      });
+    });
+
+    this.modalHost.querySelectorAll<HTMLButtonElement>('[data-del-driver]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        deleteDriverProfile(btn.dataset.delDriver!);
+        this.switchToProfile(getActiveProfile());
+        this.openDriversModal();
+      });
+    });
+  }
+
+  private switchToProfile(profile: DriverProfile): void {
+    setActiveProfileId(profile.id);
+    this.activeProfile = profile;
+    this.activeBlueprint = cloneBlueprint(profile.activeVehicle);
+    (document.getElementById('vehicle-name') as HTMLInputElement).value = this.activeBlueprint.name;
+    this.refreshDriverBadge();
+    if (this.mode === 'garage') {
+      this.garage.loadBricks(this.activeBlueprint.bricks, false);
+      this.garage.recenterCamera();
+      this.garage.showAutoPreview();
+    }
+    sound.playRingChime();
+  }
+
+  private openPlaySheetModal(): void {
+    sound.playUiTick();
+    const stats = calculateVehicleStats(this.activeBlueprint.bricks);
+    const otherCount = loadProfiles().filter((p) => p.id !== this.activeProfile.id).length;
+
+    this.showModal(`
+      <div class="panel modal-card interactive">
+        <div class="modal-header">
+          <h2 class="modal-title">${this.activeProfile.avatar} ${this.escapeHtml(this.activeProfile.username)} — Choose Mode</h2>
           <button class="btn btn-icon" data-close-modal>✕</button>
         </div>
         <div style="font-size:12px;color:#9aa7b8">
-          ${stats.brickCount} bricks • Speed ${stats.topSpeed} • Armor ${stats.armor} • Ram ${stats.ramPower}
+          ${this.escapeHtml(this.activeBlueprint.name)} • ${stats.brickCount} bricks • ${Math.round(stats.physMaxSpeed * 3.6)} km/h • ${stats.physMaxHp} HP
         </div>
         <div class="play-mode-list">
-          <button id="sheet-race" class="play-mode-card race">
-            <span class="play-mode-icon">🏁</span>
+          <button id="sheet-family" class="play-mode-card race">
+            <span class="play-mode-icon">⚔️</span>
             <div>
-              <strong>Red Rock Canyon Race</strong>
-              <span>3-lap circuit with boost pads, jump ramps &amp; 5 AI brick racers</span>
+              <strong>Family Clash (${otherCount} Other Driver${otherCount === 1 ? '' : 's'})</strong>
+              <span>Fight directly against each child's custom-built vehicles!</span>
             </div>
           </button>
           <button id="sheet-derby" class="play-mode-card derby">
             <span class="play-mode-icon">💥</span>
             <div>
               <strong>Mega Destruction Derby</strong>
-              <span>Giant coliseum arena • 8 badass rivals • brick-by-brick smashing!</span>
+              <span>Giant Coliseum • 8 Boss Heroes • Longer ~12-hit brick battles!</span>
             </div>
           </button>
           <button id="sheet-freeroam" class="play-mode-card stunt">
-            <span class="play-mode-icon">🚀</span>
+            <span class="play-mode-icon">🌀</span>
             <div>
-              <strong>Mega Stunt Park Test</strong>
-              <span>Huge stadium bowl with 8 mega-ramps &amp; boost pads to test builds</span>
+              <strong>Mega Stunt Park (Springs &amp; Sky Rings!)</strong>
+              <span>Giant Bounce Springs, Turbo Ramp Runway &amp; Floating Golden Rings</span>
+            </div>
+          </button>
+          <button id="sheet-race" class="play-mode-card">
+            <span class="play-mode-icon">🏁</span>
+            <div>
+              <strong>Red Rock Canyon Race</strong>
+              <span>High-speed 3-lap desert circuit with plasma jets &amp; mega jumps</span>
             </div>
           </button>
         </div>
       </div>
     `);
 
+    document.getElementById('sheet-family')?.addEventListener('click', () => this.launchMode('family', 1));
     document.getElementById('sheet-race')?.addEventListener('click', () => this.launchMode('race'));
     document.getElementById('sheet-derby')?.addEventListener('click', () => this.launchMode('derby', 1));
     document.getElementById('sheet-freeroam')?.addEventListener('click', () => this.launchMode('freeroam'));
@@ -405,7 +569,9 @@ class BrickForgeApp {
       btn.classList.add('hidden');
     } else {
       btn.classList.remove('hidden');
-      btn.textContent = this.deferredInstallPrompt ? '⬇ Install App' : '⬇ Install';
+      btn.innerHTML = this.deferredInstallPrompt
+        ? `⬇<span class="hide-xs"> Install</span>`
+        : `⬇<span class="hide-xs"> App</span>`;
     }
   }
 
@@ -424,32 +590,32 @@ class BrickForgeApp {
     this.showModal(`
       <div class="panel modal-card interactive">
         <div class="modal-header">
-          <h2 class="modal-title">Install BrickForge Drive Locally</h2>
+          <h2 class="modal-title">⬇ Install BrickForge Locally</h2>
           <button class="btn btn-icon" data-close-modal>✕</button>
         </div>
         <p style="margin:0;font-size:13px;color:#cbd5e1;line-height:1.5">
-          BrickForge Drive is an offline-ready Progressive Web App that runs directly on your device's GPU.
+          Install BrickForge Drive onto your phone, tablet, or computer to launch full-screen like a native game and play <b>100% offline</b> with every child's profile saved locally.
         </p>
         <div class="setting-row">
           <div class="setting-info">
-            <strong>Android (Chrome / Edge / Samsung Internet)</strong>
-            <span>Tap the browser menu (⋮) → <b>"Install app"</b> or <b>"Add to Home screen"</b>.</span>
+            <strong>Android (Chrome / Samsung Internet / Edge)</strong>
+            <span>Tap the browser menu <b>(⋮ or ☰)</b> → tap <b>"Install app"</b> or <b>"Add to Home screen"</b>.</span>
           </div>
         </div>
         <div class="setting-row">
           <div class="setting-info">
             <strong>iPhone / iPad (Safari)</strong>
-            <span>Tap the <b>Share</b> button (□↑) → scroll down and tap <b>"Add to Home Screen"</b>.</span>
+            <span>Tap the <b>Share</b> icon <b>(□↑)</b> → tap <b>"Add to Home Screen"</b>.</span>
           </div>
         </div>
         <div class="setting-row">
           <div class="setting-info">
-            <strong>Windows / Mac / Linux (Chrome / Edge)</strong>
-            <span>Click the <b>Install icon</b> in the address bar to launch in a standalone window.</span>
+            <strong>Windows / Mac / Chromebook</strong>
+            <span>Click the <b>Install App</b> icon in the browser address bar to install a desktop shortcut.</span>
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end">
-          <button class="btn btn-primary" data-close-modal>Got It</button>
+          <button class="btn btn-primary" data-close-modal>Got It!</button>
         </div>
       </div>
     `);
@@ -461,11 +627,15 @@ class BrickForgeApp {
       this.world.exit();
     }
     this.mode = 'garage';
+    this.activeProfile = getActiveProfile();
+    this.activeBlueprint = cloneBlueprint(this.activeProfile.activeVehicle);
+
     this.garageUi.classList.remove('hidden');
     this.driveUi.classList.add('hidden');
     this.touchLayer.classList.add('hidden');
 
     (document.getElementById('vehicle-name') as HTMLInputElement).value = this.activeBlueprint.name;
+    this.refreshDriverBadge();
     this.garage.enter(this.activeBlueprint);
     this.renderCategoryTabs();
     this.renderColorPalette();
@@ -483,7 +653,7 @@ class BrickForgeApp {
       this.showModal(`
         <div class="panel modal-card finish-card interactive">
           <div class="finish-badge">Add More Bricks!</div>
-          <div class="finish-sub">Place a chassis and wheels before rolling out onto the track.</div>
+          <div class="finish-sub">Place a chassis and wheels (or tap 🎲 Mix!) before rolling out.</div>
           <button class="btn btn-primary" data-close-modal>Back to Garage</button>
         </div>
       `);
@@ -502,8 +672,9 @@ class BrickForgeApp {
     this.driveUi.classList.remove('hidden');
     this.updateTouchVisibility();
 
+    const otherDrivers = loadProfiles().filter((p) => p.id !== this.activeProfile.id);
     this.world.minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement;
-    this.world.enter(targetMode, this.activeBlueprint, wave);
+    this.world.enter(targetMode, this.activeBlueprint, wave, otherDrivers);
     sound.playUiTick();
   }
 
@@ -521,7 +692,8 @@ class BrickForgeApp {
         bricks: this.garage.getBricks(),
       };
     }
-    saveActiveVehicle(this.activeBlueprint);
+    this.activeProfile.activeVehicle = this.activeBlueprint;
+    saveActiveVehicleForCurrentProfile(this.activeBlueprint);
   }
 
   private updateCoachBanner(): void {
@@ -538,16 +710,16 @@ class BrickForgeApp {
       const sel = this.garage.getSelectedBrick();
       const selName = sel ? PARTS_MAP[sel.partId]?.shortName || 'Brick' : null;
       textEl.innerHTML = selName
-        ? `<b>Move [${selName}]:</b> Use <b>◄ ▲ ▼ ► ⬆ ⬇</b> arrows, <b>↻ Turn</b>, or tap another brick`
+        ? `<b>Move [${selName}]:</b> Slide with <b>◄▲▼►⬆⬇</b>, <b>↻ Turn</b>, or tap another brick`
         : `<b>Move Mode:</b> Tap any brick on your car to select &amp; move it`;
     } else if (this.garage.activeTool === 'paint') {
       textEl.innerHTML = `<b>Paint Mode:</b> Tap any brick on the car to recolor it`;
     } else if (this.garage.activeTool === 'erase') {
       textEl.innerHTML = `<b>Erase Mode:</b> Tap any brick on the car to remove it`;
     } else if (this.garage.placedCountSession === 0) {
-      textEl.innerHTML = `<b>Build:</b> Position <b>${partName}</b> with <b>◄▲▼►⬆⬇</b> then tap <b>✓ Snap</b> (or tap car)`;
+      textEl.innerHTML = `Aim <b>${partName}</b> with <b>◄▲▼►⬆⬇</b> &amp; tap <b>✓ Snap</b> — or tap <b>🎲 Mix</b> for instant combos!`;
     } else {
-      textEl.innerHTML = `<b>${partName}</b> ready • Tap car or <b>✓ Snap</b> • Tap <b>✋ Move</b> to adjust placed bricks`;
+      textEl.innerHTML = `<b>${partName}</b> ready • Tap <b>✓ Snap</b> or car • Tap <b>✋ Move</b> to slide placed bricks`;
     }
   }
 
@@ -560,7 +732,6 @@ class BrickForgeApp {
     (document.getElementById('btn-undo') as HTMLButtonElement).disabled = !this.garage.canUndo();
     (document.getElementById('btn-redo') as HTMLButtonElement).disabled = !this.garage.canRedo();
 
-    // Tool active states & Nudge Strip visibility
     const isPlace = this.garage.activeTool === 'place';
     const isMove = this.garage.activeTool === 'move';
     document.getElementById('tool-snap')!.classList.toggle('hidden', !isPlace);
@@ -581,7 +752,6 @@ class BrickForgeApp {
 
     this.updateCoachBanner();
 
-    // Render Live Stats Card
     const statsCard = document.getElementById('stats-card')!;
     const rows = [
       { label: 'Top Speed', val: stats.topSpeed, color: '#38bdf8' },
@@ -593,7 +763,7 @@ class BrickForgeApp {
     statsCard.innerHTML = `
       <div class="stats-header">
         <span>${this.escapeHtml(this.activeBlueprint.name)}</span>
-        <span>${stats.mass} kg</span>
+        <span>${stats.physMaxHp} HP</span>
       </div>
       ${rows
         .map(
@@ -606,8 +776,13 @@ class BrickForgeApp {
         )
         .join('')}
       ${
+        stats.springCount > 0
+          ? `<div style="font-size:11px;color:#86efac;font-weight:700">🌀 Jump Springs ×${stats.springCount} (High Hop Ready!)</div>`
+          : ''
+      }
+      ${
         stats.wheelCount < 2
-          ? `<div class="stat-warning">Tip: Add wheels from the <b>Wheels</b> tab for full speed &amp; grip!</div>`
+          ? `<div class="stat-warning">Tip: Add wheels or tank treads for full speed &amp; grip!</div>`
           : ''
       }
     `;
@@ -642,7 +817,7 @@ class BrickForgeApp {
       (c) => `
       <button
         class="color-swatch ${c.hex.toLowerCase() === this.garage.activeColor.toLowerCase() ? 'active' : ''}"
-        style="background:${c.hex};${c.translucent ? 'opacity:0.78;border-style:dashed;' : ''}"
+        style="background:${c.hex}"
         title="${c.name}"
         data-hex="${c.hex}"
       ></button>
@@ -663,7 +838,8 @@ class BrickForgeApp {
     container.innerHTML = filtered
       .map((p) => {
         let badge = '';
-        if (p.isThruster) badge = `<span class="part-badge">+BOOST</span>`;
+        if (p.isSpring) badge = `<span class="part-badge grip">+JUMP</span>`;
+        else if (p.isThruster) badge = `<span class="part-badge">+BOOST</span>`;
         else if (p.ramBonus >= 10) badge = `<span class="part-badge ram">+RAM</span>`;
         else if (p.armorBonus >= 10) badge = `<span class="part-badge ram">+ARMOR</span>`;
         else if (p.gripBonus >= 4) badge = `<span class="part-badge grip">+GRIP</span>`;
@@ -689,16 +865,17 @@ class BrickForgeApp {
 
   private openBlueprintsModal(): void {
     sound.playUiTick();
-    this.savedVehicles = loadSavedVehicles();
+    this.activeProfile = getActiveProfile();
+    const saved = this.activeProfile.savedVehicles;
 
     const savedHtml =
-      this.savedVehicles.length > 0
-        ? this.savedVehicles
+      saved.length > 0
+        ? saved
             .map(
               (sv) => `
           <div class="bp-item">
             <div class="bp-item-title">${this.escapeHtml(sv.name)}</div>
-            <div class="bp-item-desc">${sv.bricks.length} bricks • Saved custom build</div>
+            <div class="bp-item-desc">${sv.bricks.length} bricks • Saved by ${this.escapeHtml(this.activeProfile.username)}</div>
             <div class="bp-item-actions">
               <button class="btn btn-primary" data-load-saved="${sv.id}">Load</button>
               <button class="btn btn-danger" data-del-saved="${sv.id}">Delete</button>
@@ -707,12 +884,15 @@ class BrickForgeApp {
         `
             )
             .join('')
-        : `<div style="font-size:12px;color:#9aa7b8">No saved custom builds yet. Tap <b>Save Current Vehicle</b> above!</div>`;
+        : `<div style="font-size:12px;color:#9aa7b8">No saved vehicles for ${this.escapeHtml(this.activeProfile.username)} yet. Tap <b>💾 Save</b> above!</div>`;
+
+    // Show newest biggest Boss Heroes first!
+    const orderedHeroes = [...STARTER_BLUEPRINTS].reverse();
 
     this.showModal(`
       <div class="panel modal-card interactive">
         <div class="modal-header">
-          <h2 class="modal-title">Starter Cars &amp; Saved Builds</h2>
+          <h2 class="modal-title">${this.activeProfile.avatar} Heroes &amp; ${this.escapeHtml(this.activeProfile.username)}'s Fleet</h2>
           <button class="btn btn-icon" data-close-modal>✕</button>
         </div>
 
@@ -722,27 +902,31 @@ class BrickForgeApp {
             <input id="modal-vehicle-name" class="vehicle-name-input" style="width:100%;margin-top:4px" type="text" maxlength="24" value="${this.escapeHtml(this.activeBlueprint.name)}" />
           </div>
           <button id="btn-save-slot" class="btn btn-primary">💾 Save</button>
+          <button id="btn-modal-mix" class="btn btn-green">🎲 Random Mix</button>
         </div>
 
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#9aa7b8;letter-spacing:0.06em">
-          Starter Vehicles
+          14 Boss &amp; Starter Heroes (Strongest First!)
         </div>
         <div class="blueprint-grid">
-          ${STARTER_BLUEPRINTS.map(
-            (bp) => `
+          ${orderedHeroes
+            .map((bp) => {
+              const st = calculateVehicleStats(bp.bricks);
+              return `
             <div class="bp-item">
               <div class="bp-item-title">${bp.name}</div>
-              <div class="bp-item-desc">${bp.tagline} (${bp.bricks.length} bricks)</div>
+              <div class="bp-item-desc">${bp.tagline} • <b>${st.physMaxHp} HP</b> • ${Math.round(st.physMaxSpeed * 3.6)} km/h</div>
               <div class="bp-item-actions">
-                <button class="btn btn-cyan" data-load-starter="${bp.id}">Load into Garage</button>
+                <button class="btn btn-cyan" data-load-starter="${bp.id}">Load Hero</button>
               </div>
             </div>
-          `
-          ).join('')}
+          `;
+            })
+            .join('')}
         </div>
 
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#9aa7b8;letter-spacing:0.06em">
-          Your Saved Builds
+          ${this.escapeHtml(this.activeProfile.username)}'s Saved Fleet
         </div>
         <div class="blueprint-grid">${savedHtml}</div>
       </div>
@@ -761,9 +945,20 @@ class BrickForgeApp {
         ...cloneBlueprint(this.activeBlueprint),
         id: makeUid('custom'),
       };
-      this.savedVehicles = saveCustomVehicle(toSave);
+      this.activeProfile = saveVehicleSlotForCurrentProfile(toSave);
       sound.playBrickSnap();
       this.openBlueprintsModal();
+    });
+
+    document.getElementById('btn-modal-mix')?.addEventListener('click', () => {
+      const mixed = createRandomHeroMix();
+      this.activeBlueprint = mixed;
+      (document.getElementById('vehicle-name') as HTMLInputElement).value = mixed.name;
+      this.garage.loadBricks(mixed.bricks, true);
+      this.garage.recenterCamera();
+      this.garage.showAutoPreview();
+      sound.playRingChime();
+      this.closeModal();
     });
 
     this.modalHost.querySelectorAll<HTMLButtonElement>('[data-load-starter]').forEach((btn) => {
@@ -782,7 +977,7 @@ class BrickForgeApp {
 
     this.modalHost.querySelectorAll<HTMLButtonElement>('[data-load-saved]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const found = this.savedVehicles.find((s) => s.id === btn.dataset.loadSaved);
+        const found = saved.find((s) => s.id === btn.dataset.loadSaved);
         if (found) {
           this.activeBlueprint = cloneBlueprint(found);
           (document.getElementById('vehicle-name') as HTMLInputElement).value = this.activeBlueprint.name;
@@ -796,7 +991,7 @@ class BrickForgeApp {
 
     this.modalHost.querySelectorAll<HTMLButtonElement>('[data-del-saved]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.savedVehicles = deleteSavedVehicle(btn.dataset.delSaved!);
+        this.activeProfile = deleteVehicleSlotForCurrentProfile(btn.dataset.delSaved!);
         this.openBlueprintsModal();
       });
     });
@@ -813,14 +1008,14 @@ class BrickForgeApp {
       `
       <div class="panel modal-card interactive">
         <div class="modal-header">
-          <h2 class="modal-title">Settings &amp; How to Build</h2>
+          <h2 class="modal-title">Settings &amp; Controls</h2>
           <button class="btn btn-icon" data-close-modal>✕</button>
         </div>
 
         <div class="setting-row">
           <div class="setting-info">
-            <strong>Quick Garage Guide</strong>
-            <span>1) Pick a brick &amp; color at the bottom. 2) Tap anywhere on the car to snap it on (or tap <b>✓ Snap</b>). 3) Drag with 1 finger to rotate, pinch to zoom. 4) Press <b>▶ PLAY</b> to Race or play Destruction Derby!</span>
+            <strong>Controls Quick Guide</strong>
+            <span><b>Drive:</b> WASD / Arrows • <b>Boost:</b> Space • <b>Jump/Hop:</b> J (or ⬆ HOP button!) • <b>Drift:</b> Shift • <b>Garage Move:</b> ✋ Move + ◄▲▼►⬆⬇</span>
           </div>
         </div>
 
@@ -829,7 +1024,7 @@ class BrickForgeApp {
             ? `<div class="setting-row">
                 <div class="setting-info">
                   <strong>Install Local Offline App</strong>
-                  <span>Run full-screen directly on your phone or PC</span>
+                  <span>Run full-screen directly on your phone, tablet, or PC</span>
                 </div>
                 <button id="btn-modal-install" class="btn btn-cyan">⬇ Install App</button>
               </div>`
@@ -910,7 +1105,7 @@ class BrickForgeApp {
   }
 
   private showFinishModal(hud: HudState): void {
-    const isNextWave = hud.mode === 'derby' && hud.won;
+    const isNextWave = (hud.mode === 'derby' || hud.mode === 'family') && hud.won;
     this.showModal(`
       <div class="panel modal-card finish-card interactive">
         <div class="finish-badge ${hud.won ? '' : 'lost'}">${this.escapeHtml(hud.finishMessage)}</div>
@@ -921,16 +1116,21 @@ class BrickForgeApp {
               ? `<button id="btn-next-wave" class="btn btn-danger">🔥 Launch Wave ${hud.wave + 1}</button>`
               : `<button id="btn-retry-mode" class="btn btn-primary">↻ Play Again</button>`
           }
-          <button id="btn-back-garage" class="btn btn-cyan">🔧 Upgrade in Garage</button>
+          <button id="btn-switch-kid" class="btn btn-green">👤 Switch Driver</button>
+          <button id="btn-back-garage" class="btn btn-cyan">🔧 Garage</button>
         </div>
       </div>
     `);
 
     document.getElementById('btn-next-wave')?.addEventListener('click', () => {
-      this.launchMode('derby', hud.wave + 1);
+      if (this.mode === 'derby' || this.mode === 'family') this.launchMode(this.mode, hud.wave + 1);
     });
     document.getElementById('btn-retry-mode')?.addEventListener('click', () => {
       if (this.mode !== 'garage') this.launchMode(this.mode, 1);
+    });
+    document.getElementById('btn-switch-kid')?.addEventListener('click', () => {
+      this.enterGarage();
+      this.openDriversModal();
     });
     document.getElementById('btn-back-garage')?.addEventListener('click', () => {
       this.enterGarage();
@@ -970,10 +1170,11 @@ class BrickForgeApp {
           <span class="hud-metric-value cyan">${hud.waypointDist}m</span>
         </div>
       `;
-    } else if (hud.mode === 'derby') {
+    } else if (hud.mode === 'derby' || hud.mode === 'family') {
+      const label = hud.mode === 'family' ? 'Family Clash' : `Wave ${hud.wave}`;
       primaryBox.innerHTML = `
         <div class="hud-metric">
-          <span class="hud-metric-label">Wave ${hud.wave}</span>
+          <span class="hud-metric-label">${label}</span>
           <span class="hud-metric-value gold">${hud.aliveCount} Left</span>
         </div>
         <div class="hud-metric">
@@ -988,12 +1189,12 @@ class BrickForgeApp {
     } else {
       primaryBox.innerHTML = `
         <div class="hud-metric">
-          <span class="hud-metric-label">Mode</span>
-          <span class="hud-metric-value cyan">Stunt Park</span>
+          <span class="hud-metric-label">Stunt Park</span>
+          <span class="hud-metric-value gold">${hud.score.toLocaleString()} pts</span>
         </div>
         <div class="hud-metric">
-          <span class="hud-metric-label">Build</span>
-          <span class="hud-metric-value">${this.escapeHtml(this.activeBlueprint.name)}</span>
+          <span class="hud-metric-label">${this.activeProfile.avatar} ${this.escapeHtml(this.activeProfile.username)}</span>
+          <span class="hud-metric-value cyan">${this.escapeHtml(this.activeBlueprint.name)}</span>
         </div>
       `;
     }

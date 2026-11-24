@@ -635,6 +635,91 @@ export function createBrickMesh(partId: BrickPartId, colorHex: string): THREE.Gr
     return group;
   }
 
+  if (partId === 'mega_rocket') {
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(W * 0.92, H * 0.86, D * 0.52), mat);
+    housing.position.z = D * 0.24;
+    housing.castShadow = true;
+    group.add(housing);
+
+    // Massive oversized twin-stage rocket bell!
+    const bellGeo = new THREE.CylinderGeometry(STUD_SIZE * 0.56, STUD_SIZE * 0.78, D * 0.78, 18);
+    bellGeo.rotateX(Math.PI / 2);
+    const bell = new THREE.Mesh(bellGeo, darkMetalMat);
+    bell.position.set(0, 0, -D * 0.16);
+    bell.castShadow = true;
+    group.add(bell);
+
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(STUD_SIZE * 0.74, 0.08, 10, 20), brightChromeMat);
+    collar.position.set(0, 0, -D * 0.52);
+    group.add(collar);
+
+    const coreGeo = new THREE.CircleGeometry(STUD_SIZE * 0.66, 18);
+    coreGeo.rotateY(Math.PI);
+    const core = new THREE.Mesh(coreGeo, thrusterCoreMat);
+    core.position.set(0, 0, -D * 0.5);
+    group.add(core);
+
+    // Giant plasma flame plume!
+    const flameOuterGeo = new THREE.ConeGeometry(STUD_SIZE * 0.76, 4.2, 16, 1, true);
+    flameOuterGeo.rotateX(-Math.PI / 2);
+    flameOuterGeo.translate(0, 0, -2.1);
+    const flameOuter = new THREE.Mesh(
+      flameOuterGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0x38e8ff,
+        transparent: true,
+        opacity: 0.82,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    flameOuter.position.set(0, 0, -D * 0.52);
+    flameOuter.scale.set(0.6, 0.6, 0.25);
+    flameOuter.name = 'thruster_flame';
+
+    const flameInnerGeo = new THREE.ConeGeometry(STUD_SIZE * 0.42, 2.6, 12, 1, true);
+    flameInnerGeo.rotateX(-Math.PI / 2);
+    flameInnerGeo.translate(0, 0, -1.3);
+    flameOuter.add(
+      new THREE.Mesh(
+        flameInnerGeo,
+        new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.94,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      )
+    );
+    group.add(flameOuter);
+    return group;
+  }
+
+  if (partId === 'jump_springs') {
+    const topCap = new THREE.Mesh(new THREE.BoxGeometry(W, PLATE_HEIGHT * 0.55, D), mat);
+    topCap.position.y = H / 2 - PLATE_HEIGHT * 0.27;
+    topCap.castShadow = true;
+    const botCap = new THREE.Mesh(new THREE.BoxGeometry(W, PLATE_HEIGHT * 0.55, D), darkMetalMat);
+    botCap.position.y = -H / 2 + PLATE_HEIGHT * 0.27;
+    group.add(topCap, botCap);
+
+    // Glowing yellow-gold coiled hydraulic spring rings!
+    const springMat = getBrickMaterial('#f4be17');
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(W * 0.34, 0.08, 8, 16), springMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = -H * 0.2 + i * (H * 0.2);
+      group.add(ring);
+    }
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, H * 0.9, 10), brightChromeMat);
+    group.add(piston);
+    addStuds(group, part.w, part.d, H / 2, mat);
+    return group;
+  }
+
   if (partId === 'armor_plate') {
     const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), mat);
     body.castShadow = true;

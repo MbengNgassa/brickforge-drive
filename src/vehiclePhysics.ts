@@ -14,6 +14,7 @@ export interface ControlInput {
   steer: number; // -1..1 (+1 = left, -1 = right)
   boost: boolean;
   handbrake: boolean;
+  jump?: boolean;
 }
 
 interface AttachedBrick {
@@ -222,6 +223,10 @@ export class DriveVehicle {
   public wrecked = false;
   public hitFlash = 0;
   public damageCooldown = 0;
+  public jumpCooldown = 0;
+  public airTime = 0;
+  public justLandedAirTime = 0;
+  public justHopped = false;
 
   // Race / Derby tracking
   public lap = 1;
@@ -505,17 +510,32 @@ export class DriveVehicle {
     this.position.x += this.velocity.x * dt;
     this.position.z += this.velocity.z * dt;
 
-    // Vertical gravity & ramp landings
+    if (this.jumpCooldown > 0) this.jumpCooldown -= dt;
+    this.justLandedAirTime = 0;
+    this.justHopped = false;
+
+    // Hydraulic Jump / Hop trigger!
+    if (canDrive && input.jump && this.grounded && this.jumpCooldown <= 0) {
+      this.vy = this.stats.physJumpImpulse;
+      this.grounded = false;
+      this.jumpCooldown = 0.85;
+      this.justHopped = true;
+      debris.spawnSparks(this.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 8);
+    }
+
+    // Vertical arcade gravity (22.5 for big-air stunt hang-time!) & ramp landings
     if (this.position.y > groundHeight + 0.05 || this.vy > 0) {
-      this.vy -= 36 * dt;
+      this.airTime += dt;
+      this.vy -= 22.5 * dt;
       this.position.y += this.vy * dt;
       if (this.position.y <= groundHeight) {
         this.position.y = groundHeight;
-        if (this.vy < -10) {
-          // Suspension thump & bonus boost on big jumps!
-          this.boost = Math.min(100, this.boost + 12);
-          debris.spawnSmoke(this.position, 4);
+        if (this.airTime > 0.55) {
+          this.justLandedAirTime = this.airTime;
+          this.boost = Math.min(100, this.boost + Math.min(45, this.airTime * 18));
+          debris.spawnSmoke(this.position, 6);
         }
+        this.airTime = 0;
         this.vy = 0;
         this.grounded = true;
       } else {
@@ -524,10 +544,15 @@ export class DriveVehicle {
     } else {
       this.position.y = groundHeight;
       this.grounded = true;
+      this.airTime = 0;
     }
 
-    // Dynamic body roll & pitch (lively arcade suspension feel!)
-    const targetPitch = this.isBoosting ? -0.075 : -input.throttle * 0.035;
+    // Dynamic body roll & pitch (lively arcade suspension + mid-air nose angle!)
+    const targetPitch = !this.grounded
+      ? THREE.MathUtils.clamp(-this.vy * 0.018, -0.32, 0.28)
+      : this.isBoosting
+        ? -0.085
+        : -input.throttle * 0.038;
     const targetRoll = -input.steer * Math.min(1, Math.abs(fwdSpeed) / 28) * (this.isDrifting ? 0.14 : 0.07);
     this.bodyTilt.rotation.x = THREE.MathUtils.lerp(this.bodyTilt.rotation.x, targetPitch, dt * 8);
     this.bodyTilt.rotation.z = THREE.MathUtils.lerp(this.bodyTilt.rotation.z, targetRoll, dt * 8);
@@ -552,7 +577,7 @@ export class DriveVehicle {
     for (const th of this.thrusters) {
       if (this.isBoosting) {
         th.flame.visible = true;
-        th.flame.scale.set(1.15 * flicker, 1.15 * flicker, 1.55 * flicker);
+        th.flame.scale.set(1.18 * flicker, 1.18 * flicker, 1.65 * flicker);
       } else if (canDrive && input.throttle > 0.2) {
         th.flame.visible = true;
         th.flame.scale.set(0.55, 0.55, 0.35 * flicker);
@@ -615,13 +640,14 @@ export class DriveVehicle {
       this.lastHitTime = performance.now();
     }
 
-    debris.spawnSparks(impactWorldPoint, Math.min(20, Math.max(6, Math.round(amount * 0.45))));
+    debris.spawnSparks(impactWorldPoint, Math.min(20, Math.max(8, Math.round((amount / this.maxHp) * 90))));
 
-    // Convert impact point to local space to knock off nearest outer bricks!
+    // Convert impact point to local space to knock off nearest outer bricks smoothly across ~10+ hits!
     const localImpact = impactWorldPoint.clone();
     this.bodyTilt.worldToLocal(localImpact);
 
-    const bricksToShed = Math.min(8, Math.max(1, Math.floor(amount / 11)));
+    const hpRatioLost = amount / Math.max(1, this.maxHp);
+    const bricksToShed = Math.min(3, Math.max(1, Math.round(hpRatioLost * 16)));
     const candidates = this.bricks
       .filter((b) => !b.detached && !b.isCore && !b.isWheel)
       .sort((a, b) => a.localPos.distanceToSquared(localImpact) - b.localPos.distanceToSquared(localImpact));

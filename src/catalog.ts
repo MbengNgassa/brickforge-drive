@@ -19,27 +19,37 @@ export const CATEGORIES: { id: BrickCategory; label: string }[] = [
   { id: 'power', label: 'Boost & Derby' },
 ];
 
+// Streamlined 8 bold hero colors — easy to pick, focus on building creative mixes!
 export const COLORS: ColorDef[] = [
   { id: 'red', name: 'Racing Red', hex: '#d92626' },
   { id: 'blue', name: 'Cobalt Blue', hex: '#1d5fd6' },
   { id: 'yellow', name: 'Signal Yellow', hex: '#f4be17' },
-  { id: 'tan', name: 'Desert Tan', hex: '#b6895b' },
-  { id: 'teal', name: 'Classic Teal', hex: '#168f8b' },
-  { id: 'orange', name: 'Sunset Orange', hex: '#ee6a18' },
   { id: 'lime', name: 'Acid Lime', hex: '#6ec41d' },
-  { id: 'green', name: 'Forest Green', hex: '#1d7a42' },
+  { id: 'orange', name: 'Sunset Orange', hex: '#ee6a18' },
   { id: 'white', name: 'Pure White', hex: '#f0f3f7' },
-  { id: 'lightgray', name: 'Light Stone', hex: '#aeb6c2' },
-  { id: 'darkgray', name: 'Gunmetal', hex: '#4b5361' },
   { id: 'black', name: 'Obsidian Black', hex: '#1d2128' },
-  { id: 'chrome', name: 'Chrome Silver', hex: '#d4dde8', metallic: true },
-  { id: 'gold', name: 'Trophy Gold', hex: '#e3b23c', metallic: true },
-  { id: 'transblue', name: 'Trans-Ice Glass', hex: '#55ccff', translucent: true },
-  { id: 'transred', name: 'Trans-Ruby', hex: '#ff3344', translucent: true },
+  { id: 'chrome', name: 'Chrome Steel', hex: '#cfd8e3', metallic: true },
 ];
 
 export const PARTS: BrickPartDef[] = [
   // CHASSIS
+  {
+    id: 'plate_6x8',
+    name: '6×8 Titan Mega Baseplate',
+    shortName: 'Titan 6×8',
+    category: 'chassis',
+    w: 6,
+    h: 1,
+    d: 8,
+    mass: 4.8,
+    hp: 65,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 4,
+    ramBonus: 5,
+    armorBonus: 10,
+    hasStudsTop: true,
+  },
   {
     id: 'plate_4x6',
     name: '4×6 Chassis Baseplate',
@@ -603,6 +613,42 @@ export const PARTS: BrickPartDef[] = [
     hasStudsTop: false,
   },
   {
+    id: 'mega_rocket',
+    name: 'Giant Mega-Rocket Booster',
+    shortName: 'Mega Rocket',
+    category: 'power',
+    w: 2,
+    h: 3,
+    d: 3,
+    mass: 2.0,
+    hp: 35,
+    topSpeedBonus: 16,
+    boostBonus: 26,
+    gripBonus: 0,
+    ramBonus: 4,
+    armorBonus: 2,
+    isThruster: true,
+    hasStudsTop: false,
+  },
+  {
+    id: 'jump_springs',
+    name: 'Hydraulic Stunt Jump Springs',
+    shortName: 'Jump Springs',
+    category: 'power',
+    w: 2,
+    h: 2,
+    d: 2,
+    mass: 1.0,
+    hp: 30,
+    topSpeedBonus: 2,
+    boostBonus: 4,
+    gripBonus: 4,
+    ramBonus: 2,
+    armorBonus: 3,
+    isSpring: true,
+    hasStudsTop: true,
+  },
+  {
     id: 'armor_plate',
     name: 'Titanium Armor Block',
     shortName: 'Armor 2×2',
@@ -664,11 +710,12 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
   let mass = 0;
   let wheelCount = 0;
   let thrusterCount = 0;
-  let topSpeedRaw = 36;
-  let boostRaw = 24;
-  let gripRaw = 35;
-  let ramRaw = 15;
-  let armorRaw = 20;
+  let springCount = 0;
+  let topSpeedRaw = 42;
+  let boostRaw = 28;
+  let gripRaw = 38;
+  let ramRaw = 16;
+  let armorRaw = 22;
   let totalBrickHp = 0;
 
   for (const b of bricks) {
@@ -678,6 +725,7 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
     totalBrickHp += p.hp;
     if (p.isWheel) wheelCount++;
     if (p.isThruster) thrusterCount++;
+    if (p.isSpring) springCount++;
     topSpeedRaw += p.topSpeedBonus;
     boostRaw += p.boostBonus;
     gripRaw += p.gripBonus;
@@ -686,18 +734,18 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
   }
 
   const effectiveMass = Math.max(8, mass);
-  const weightPenalty = Math.max(0, (effectiveMass - 28) * 0.42);
-  const wheelFactor = wheelCount >= 4 ? 1.0 : wheelCount >= 2 ? 0.82 : 0.55;
+  const weightPenalty = Math.max(0, (effectiveMass - 38) * 0.28);
+  const wheelFactor = wheelCount >= 4 ? 1.0 : wheelCount >= 2 ? 0.85 : 0.62;
 
-  const topSpeed = Math.round(Math.min(100, Math.max(18, (topSpeedRaw - weightPenalty * 0.65) * wheelFactor)));
+  const topSpeed = Math.round(Math.min(100, Math.max(25, (topSpeedRaw - weightPenalty * 0.55) * wheelFactor)));
   const acceleration = Math.round(
-    Math.min(100, Math.max(20, (46 + thrusterCount * 13 + Math.min(wheelCount, 6) * 4 - weightPenalty * 0.9) * wheelFactor))
+    Math.min(100, Math.max(28, (50 + thrusterCount * 12 + Math.min(wheelCount, 6) * 4 - weightPenalty * 0.7) * wheelFactor))
   );
   const handling = Math.round(
-    Math.min(100, Math.max(22, (gripRaw - weightPenalty * 0.4) * (wheelCount >= 4 ? 1.0 : 0.72)))
+    Math.min(100, Math.max(28, (gripRaw - weightPenalty * 0.35) * (wheelCount >= 4 ? 1.0 : 0.78)))
   );
-  const armor = Math.round(Math.min(100, Math.max(15, armorRaw * 0.9 + effectiveMass * 0.55)));
-  const ramPower = Math.round(Math.min(100, Math.max(15, ramRaw * 1.45 + effectiveMass * 0.65)));
+  const armor = Math.round(Math.min(100, Math.max(20, armorRaw * 0.85 + effectiveMass * 0.55)));
+  const ramPower = Math.round(Math.min(100, Math.max(20, ramRaw * 1.35 + effectiveMass * 0.65)));
 
   return {
     brickCount: bricks.length,
@@ -705,17 +753,22 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
     mass: Math.round(effectiveMass * 10) / 10,
     wheelCount,
     thrusterCount,
+    springCount,
     topSpeed,
     acceleration,
     handling,
     armor,
     ramPower,
-    physMaxSpeed: 32 + (topSpeed / 100) * 28, // 32..60 units/sec
-    physAccel: 22 + (acceleration / 100) * 26,
-    physTurnRate: 1.7 + (handling / 100) * 1.35,
-    physGrip: 4.0 + (handling / 100) * 6.5,
-    physMaxHp: Math.max(120, Math.round(90 + totalBrickHp * 0.48 + armor * 2.2)),
-    physRamMultiplier: 0.85 + (ramPower / 100) * 1.45,
-    physBoostPower: 16 + Math.min(boostRaw, 85) * 0.32,
+    // Faster, punchier, more exhilarating arcade speeds!
+    physMaxSpeed: 44 + (topSpeed / 100) * 34, // 44..78 units/sec (160..280+ km/h!)
+    physAccel: 32 + (acceleration / 100) * 34,
+    physTurnRate: 1.9 + (handling / 100) * 1.4,
+    physGrip: 4.6 + (handling / 100) * 7.0,
+    // Tougher chassis HP so Derby battles last 10-14 exciting clashes instead of 3 hits!
+    physMaxHp: Math.max(420, Math.round(320 + totalBrickHp * 0.85 + armor * 4.5)),
+    physRamMultiplier: 0.88 + (ramPower / 100) * 1.1,
+    physBoostPower: 22 + Math.min(boostRaw, 100) * 0.34,
+    // Every car can mini-hop; Jump Springs give huge vertical stunt hops!
+    physJumpImpulse: 12 + Math.min(springCount, 4) * 5.8,
   };
 }

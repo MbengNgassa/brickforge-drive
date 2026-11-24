@@ -55,6 +55,18 @@ interface KnockableCone {
   active: boolean;
 }
 
+interface DerbyAiBrain {
+  role: 'brawler' | 'flanker' | 'opportunist' | 'stunt_hunter';
+  targetId: string | null;
+  state: 'fight' | 'heal' | 'nitro' | 'roam' | 'recover';
+  decisionTimer: number;
+  stuckTimer: number;
+  recoverTimer: number;
+  recoverSteer: number;
+  roamTarget: THREE.Vector3;
+  flankSign: number;
+}
+
 export interface TouchInputState {
   left: boolean;
   right: boolean;
@@ -75,14 +87,17 @@ export class GameWorldController {
   private paused = false;
 
   private vehicles: DriveVehicle[] = [];
+  private aiBrains = new Map<string, DerbyAiBrain>();
   private player!: DriveVehicle;
   private debris!: DebrisSystem;
 
   // Race track spline & metadata
   private trackCurve: THREE.CatmullRomCurve3 | null = null;
   private trackSamples: THREE.Vector3[] = [];
-  private trackHalfWidth = 10.5;
-  private waypointMesh: THREE.Mesh | null = null;
+  private trackTangents: THREE.Vector3[] = [];
+  private trackHalfWidth = 13.5;
+  private waypointMesh: THREE.Object3D | null = null;
+  private wrongWayTimer = 0;
 
   // World interactive props
   private ramps: RampDef[] = [];
@@ -109,7 +124,7 @@ export class GameWorldController {
   private countdown = 3.2;
   private lastCountdownInt = 4;
   private elapsedTime = 0;
-  private cameraMode = 0; // 0 = dynamic chase, 1 = close action, 2 = high tactical
+  private cameraMode = 0; // 0 = Chase, 1 = Wide, 2 = Hood
   private cameraShake = 0;
   private camPosCurrent = new THREE.Vector3();
   private camLookCurrent = new THREE.Vector3();
@@ -151,6 +166,7 @@ export class GameWorldController {
     this.otherDrivers = otherDrivers;
 
     this.vehicles = [];
+    this.aiBrains.clear();
     this.ramps = [];
     this.boostPads = [];
     this.springPads = [];
@@ -159,7 +175,9 @@ export class GameWorldController {
     this.cones = [];
     this.trackCurve = null;
     this.trackSamples = [];
+    this.trackTangents = [];
     this.waypointMesh = null;
+    this.wrongWayTimer = 0;
 
     this.countdown = mode === 'freeroam' ? -1 : 3.2;
     this.lastCountdownInt = 4;
@@ -243,6 +261,7 @@ export class GameWorldController {
       this.player.vy = 0;
     }
     this.player.syncTransform();
+    this.updateCamera(0.016, true);
     sound.playUiTick();
   }
 
@@ -250,7 +269,7 @@ export class GameWorldController {
     const isRace = this.mode === 'race';
     const skyColor = isRace ? 0x62a8e5 : 0x263244;
     scene.background = new THREE.Color(skyColor);
-    scene.fog = new THREE.Fog(skyColor, isRace ? 140 : 160, isRace ? 440 : 420);
+    scene.fog = new THREE.Fog(skyColor, isRace ? 150 : 160, isRace ? 460 : 420);
 
     const hemi = new THREE.HemisphereLight(isRace ? 0xe0f2fe : 0xdbeafe, isRace ? 0xc26d42 : 0x374151, isRace ? 0.95 : 0.9);
     scene.add(hemi);
@@ -274,13 +293,13 @@ export class GameWorldController {
   }
 
   // =========================================================================
-  // RED ROCK CANYON CIRCUIT RACE (Inspired by Screenshot 3!)
+  // RED ROCK CANYON CIRCUIT RACE (Crystal-clear asphalt + brick guardrails!)
   // =========================================================================
   private buildCanyonRaceWorld(scene: THREE.Scene): void {
     // Expansive desert canyon ground
     const groundTex = createCanyonGroundTexture();
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(900, 900),
+      new THREE.PlaneGeometry(1100, 1100),
       new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.92 })
     );
     ground.rotation.x = -Math.PI / 2;
@@ -303,13 +322,16 @@ export class GameWorldController {
     ];
     this.trackCurve = new THREE.CatmullRomCurve3(controlPts, true, 'catmullrom', 0.5);
 
-    const SEGMENTS = 260;
+    const SEGMENTS = 280;
     this.trackSamples = [];
+    this.trackTangents = [];
     for (let i = 0; i < SEGMENTS; i++) {
-      this.trackSamples.push(this.trackCurve.getPointAt(i / SEGMENTS));
+      const t = i / SEGMENTS;
+      this.trackSamples.push(this.trackCurve.getPointAt(t));
+      this.trackTangents.push(this.trackCurve.getTangentAt(t).normalize());
     }
 
-    // Build custom UV-mapped ribbon mesh for the asphalt + kerbs road!
+    // Build custom UV-mapped ribbon mesh for the dark asphalt + yellow dashes + red/white kerbs!
     const roadWidth = this.trackHalfWidth * 2;
     const positions: number[] = [];
     const normals: number[] = [];
@@ -317,22 +339,23 @@ export class GameWorldController {
     const indices: number[] = [];
 
     for (let i = 0; i <= SEGMENTS; i++) {
-      const t = (i % SEGMENTS) / SEGMENTS;
-      const pt = this.trackCurve.getPointAt(t);
-      const tan = this.trackCurve.getTangentAt(t).normalize();
+      const idx = i % SEGMENTS;
+      const pt = this.trackSamples[idx];
+      const tan = this.trackTangents[idx];
       const side = new THREE.Vector3(-tan.z, 0, tan.x).multiplyScalar(roadWidth / 2);
 
-      positions.push(pt.x - side.x, 0.04, pt.z - side.z);
-      positions.push(pt.x + side.x, 0.04, pt.z + side.z);
+      positions.push(pt.x - side.x, 0.06, pt.z - side.z);
+      positions.push(pt.x + side.x, 0.06, pt.z + side.z);
       normals.push(0, 1, 0, 0, 1, 0);
-      uvs.push(0, i * 0.45, 1, i * 0.45);
+      uvs.push(0, i * 0.42, 1, i * 0.42);
 
       if (i < SEGMENTS) {
         const a = i * 2;
         const b = a + 1;
         const c = a + 2;
         const d = a + 3;
-        indices.push(a, c, b, b, c, d);
+        // Upward-facing (+Y) winding so the asphalt road renders crystal-clear from above!
+        indices.push(a, b, c, b, d, c);
       }
     }
 
@@ -345,12 +368,130 @@ export class GameWorldController {
     const asphaltTex = createAsphaltTexture();
     const roadMesh = new THREE.Mesh(
       roadGeo,
-      new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.72, metalness: 0.06 })
+      new THREE.MeshStandardMaterial({
+        map: asphaltTex,
+        roughness: 0.7,
+        metalness: 0.08,
+        side: THREE.DoubleSide,
+      })
     );
     roadMesh.receiveShadow = true;
     scene.add(roadMesh);
 
-    // Start / Finish Brick Gantry + DYNAMO Overhead Arch (nod to Screenshot 3!)
+    // Continuous Red & White Brick Guardrails along BOTH edges (fast 2-draw-call InstancedMesh!)
+    const BARRIER_SEGMENTS = 180;
+    const barrierGeo = new THREE.BoxGeometry(1.4, 1.45, 7.2);
+    const barrierRedMat = new THREE.MeshStandardMaterial({ color: 0xd92626, roughness: 0.42 });
+    const barrierWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.42 });
+    const redInst = new THREE.InstancedMesh(barrierGeo, barrierRedMat, BARRIER_SEGMENTS);
+    const whiteInst = new THREE.InstancedMesh(barrierGeo, barrierWhiteMat, BARRIER_SEGMENTS);
+    redInst.castShadow = true;
+    redInst.receiveShadow = true;
+    whiteInst.castShadow = true;
+    whiteInst.receiveShadow = true;
+
+    const dummy = new THREE.Object3D();
+    let rIdx = 0;
+    let wIdx = 0;
+    const railOffset = this.trackHalfWidth + 1.35;
+
+    for (let i = 0; i < BARRIER_SEGMENTS; i++) {
+      const t = i / BARRIER_SEGMENTS;
+      const pt = this.trackCurve.getPointAt(t);
+      const tan = this.trackCurve.getTangentAt(t).normalize();
+      const sideX = -tan.z;
+      const sideZ = tan.x;
+      const heading = Math.atan2(tan.x, tan.z);
+
+      for (const sign of [-1, 1]) {
+        dummy.position.set(pt.x + sideX * railOffset * sign, 0.72, pt.z + sideZ * railOffset * sign);
+        dummy.rotation.set(0, heading, 0);
+        dummy.updateMatrix();
+        if ((i + (sign > 0 ? 1 : 0)) % 2 === 0 && rIdx < BARRIER_SEGMENTS) {
+          redInst.setMatrixAt(rIdx++, dummy.matrix);
+        } else if (wIdx < BARRIER_SEGMENTS) {
+          whiteInst.setMatrixAt(wIdx++, dummy.matrix);
+        }
+      }
+    }
+    redInst.count = rIdx;
+    whiteInst.count = wIdx;
+    redInst.instanceMatrix.needsUpdate = true;
+    whiteInst.instanceMatrix.needsUpdate = true;
+    scene.add(redInst, whiteInst);
+
+    // Bright Yellow-and-Black Corner Chevron Boards on every curve!
+    const chevronCanvas = document.createElement('canvas');
+    chevronCanvas.width = 256;
+    chevronCanvas.height = 128;
+    const cctx = chevronCanvas.getContext('2d')!;
+    cctx.fillStyle = '#facc15';
+    cctx.fillRect(0, 0, 256, 128);
+    cctx.strokeStyle = '#111827';
+    cctx.lineWidth = 22;
+    cctx.lineCap = 'round';
+    cctx.lineJoin = 'round';
+    for (const ox of [52, 130, 208]) {
+      cctx.beginPath();
+      cctx.moveTo(ox - 28, 22);
+      cctx.lineTo(ox + 14, 64);
+      cctx.lineTo(ox - 28, 106);
+      cctx.stroke();
+    }
+    const chevronTex = new THREE.CanvasTexture(chevronCanvas);
+    chevronTex.colorSpace = THREE.SRGBColorSpace;
+    const chevronMat = new THREE.MeshBasicMaterial({ map: chevronTex, side: THREE.DoubleSide });
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+
+    for (let i = 0; i < SEGMENTS; i += 8) {
+      const prevT = this.trackTangents[(i - 4 + SEGMENTS) % SEGMENTS];
+      const nextT = this.trackTangents[(i + 4) % SEGMENTS];
+      const turn = prevT.x * nextT.z - prevT.z * nextT.x;
+      if (Math.abs(turn) > 0.14) {
+        const pt = this.trackSamples[i];
+        const tan = this.trackTangents[i];
+        const outerSign = turn > 0 ? 1 : -1;
+        const distOut = this.trackHalfWidth + 3.4;
+        const board = new THREE.Group();
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.8, 0.45), postMat);
+        post.position.y = 1.9;
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.6), chevronMat);
+        sign.position.y = 3.6;
+        board.add(post, sign);
+        board.position.set(pt.x + -tan.z * distOut * outerSign, 0, pt.z + tan.x * distOut * outerSign);
+        board.rotation.y = Math.atan2(tan.x, tan.z) + (outerSign > 0 ? Math.PI * 0.65 : -Math.PI * 0.65);
+        scene.add(board);
+      }
+    }
+
+    // Glowing cyan road-surface direction chevrons so forward track flow is unmistakable!
+    const roadArrowMat = new THREE.MeshBasicMaterial({
+      color: 0x38e8ff,
+      transparent: true,
+      opacity: 0.72,
+      side: THREE.DoubleSide,
+    });
+    const arrowShape = new THREE.Shape();
+    arrowShape.moveTo(0, 2.4);
+    arrowShape.lineTo(2.4, -0.6);
+    arrowShape.lineTo(1.2, -0.6);
+    arrowShape.lineTo(0, 0.9);
+    arrowShape.lineTo(-1.2, -0.6);
+    arrowShape.lineTo(-2.4, -0.6);
+    arrowShape.closePath();
+    const arrowGeo = new THREE.ShapeGeometry(arrowShape);
+    arrowGeo.rotateX(Math.PI / 2);
+
+    for (let i = 6; i < SEGMENTS; i += 18) {
+      const pt = this.trackSamples[i];
+      const tan = this.trackTangents[i];
+      const arrow = new THREE.Mesh(arrowGeo, roadArrowMat);
+      arrow.position.set(pt.x, 0.12, pt.z);
+      arrow.rotation.y = Math.atan2(tan.x, tan.z);
+      scene.add(arrow);
+    }
+
+    // Start / Finish Brick Gantry + DYNAMO Overhead Arch
     this.buildTrackGantry(scene, 0.015, 'BRICK GP', 0xd92626);
     this.buildTrackGantry(scene, 0.28, 'DYNAMO', 0xee6a18);
     this.buildTrackGantry(scene, 0.62, 'NITRO ZONE', 0x0284c7);
@@ -368,7 +509,7 @@ export class GameWorldController {
     for (const t of rampTs) {
       const pt = this.trackCurve.getPointAt(t);
       const tan = this.trackCurve.getTangentAt(t);
-      this.createRamp(scene, pt.x, pt.z, Math.atan2(tan.x, tan.z), 8.5, 11.0, 2.8);
+      this.createRamp(scene, pt.x, pt.z, Math.atan2(tan.x, tan.z), 9.5, 11.5, 2.8);
     }
 
     // Brick-built Red Rock Canyon Mesas & Buttes framing the circuit!
@@ -378,21 +519,20 @@ export class GameWorldController {
     const mats = [mesaMat1, mesaMat2, mesaMat3];
 
     const mesaSpecs = [
-      { x: -65, z: 65, w: 36, h: 38, d: 34 },
-      { x: -58, z: -60, w: 32, h: 28, d: 38 },
+      { x: -68, z: 65, w: 36, h: 38, d: 34 },
+      { x: -62, z: -60, w: 32, h: 28, d: 38 },
       { x: 115, z: 75, w: 34, h: 42, d: 30 },
       { x: 110, z: -55, w: 38, h: 36, d: 36 },
-      { x: 285, z: 160, w: 46, h: 52, d: 44 },
-      { x: 310, z: -25, w: 42, h: 46, d: 48 },
-      { x: 270, z: -225, w: 48, h: 40, d: 38 },
-      { x: -10, z: 225, w: 50, h: 48, d: 38 },
-      { x: 125, z: 245, w: 44, h: 36, d: 34 },
-      { x: 65, z: -240, w: 46, h: 44, d: 36 },
+      { x: 292, z: 160, w: 46, h: 52, d: 44 },
+      { x: 315, z: -25, w: 42, h: 46, d: 48 },
+      { x: 275, z: -230, w: 48, h: 40, d: 38 },
+      { x: -12, z: 230, w: 50, h: 48, d: 38 },
+      { x: 125, z: 250, w: 44, h: 36, d: 34 },
+      { x: 65, z: -245, w: 46, h: 44, d: 36 },
     ];
 
     for (const m of mesaSpecs) {
       const mesa = new THREE.Group();
-      // 3 stacked blocky brick-style canyon tiers
       for (let tier = 0; tier < 3; tier++) {
         const scale = 1 - tier * 0.24;
         const tierH = m.h / 3;
@@ -409,14 +549,14 @@ export class GameWorldController {
       scene.add(mesa);
     }
 
-    // Brick-built desert cacti & trackside chevron signs
+    // Brick-built desert cacti outside the guardrails
     const cactusMat = new THREE.MeshStandardMaterial({ color: 0x2d8a47, roughness: 0.6 });
     for (let i = 0; i < 36; i++) {
       const t = i / 36;
       const pt = this.trackCurve.getPointAt(t);
       const tan = this.trackCurve.getTangentAt(t);
       const sideSign = i % 2 === 0 ? 1 : -1;
-      const offset = (this.trackHalfWidth + 6 + (i % 3) * 4) * sideSign;
+      const offset = (this.trackHalfWidth + 7.5 + (i % 3) * 4) * sideSign;
       const cx = pt.x + -tan.z * offset;
       const cz = pt.z + tan.x * offset;
       const cactus = new THREE.Group();
@@ -432,13 +572,22 @@ export class GameWorldController {
       scene.add(cactus);
     }
 
-    // Floating cyan checkpoint beacon ahead of player
-    const wpGeo = new THREE.OctahedronGeometry(1.3, 0);
-    this.waypointMesh = new THREE.Mesh(
-      wpGeo,
-      new THREE.MeshBasicMaterial({ color: 0x38e8ff, transparent: true, opacity: 0.88 })
+    // Floating 3D glowing directional checkpoint arrow ahead of player!
+    const wpGroup = new THREE.Group();
+    const wpCone = new THREE.Mesh(
+      new THREE.ConeGeometry(1.35, 3.2, 6),
+      new THREE.MeshBasicMaterial({ color: 0x38e8ff, transparent: true, opacity: 0.92 })
     );
-    scene.add(this.waypointMesh);
+    wpCone.rotation.x = Math.PI / 2;
+    wpCone.position.z = 1.0;
+    const wpTail = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.85, 2.0),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.92 })
+    );
+    wpTail.position.z = -1.2;
+    wpGroup.add(wpCone, wpTail);
+    this.waypointMesh = wpGroup;
+    scene.add(wpGroup);
   }
 
   private buildTrackGantry(scene: THREE.Scene, t: number, bannerText: string, accentHex: number): void {
@@ -784,6 +933,8 @@ export class GameWorldController {
       aiIdx++;
     }
 
+    const roles: DerbyAiBrain['role'][] = ['brawler', 'flanker', 'opportunist', 'stunt_hunter'];
+
     rivalSpecs.forEach((spec, i) => {
       const v = new DriveVehicle(`derby_ai_${i}`, spec.name, spec.bp, false, false, spec.tint);
       v.maxHp = Math.round(v.maxHp * (0.85 + this.wave * 0.1));
@@ -792,10 +943,25 @@ export class GameWorldController {
       const ang = ((i + 1) / (rivalSpecs.length + 1)) * Math.PI * 2;
       const r = 84;
       v.position.set(Math.sin(ang) * r, 0.1, Math.cos(ang) * r);
-      v.heading = Math.atan2(-v.position.x, -v.position.z);
+      // Angle slightly toward a neighboring sector so AIs fan out organically at kickoff!
+      const scatterAngle = ang + (i % 2 === 0 ? 0.55 : -0.55);
+      v.heading = Math.atan2(-Math.sin(scatterAngle), -Math.cos(scatterAngle));
       v.syncTransform();
       scene.add(v.root);
       this.vehicles.push(v);
+
+      const roamAng = ang + Math.PI * (0.45 + (i % 3) * 0.25);
+      this.aiBrains.set(v.id, {
+        role: roles[i % roles.length],
+        targetId: null,
+        state: i % 3 === 0 ? 'roam' : 'fight',
+        decisionTimer: 1.5 + (i % 4) * 0.75,
+        stuckTimer: 0,
+        recoverTimer: 0,
+        recoverSteer: i % 2 === 0 ? 1 : -1,
+        roamTarget: new THREE.Vector3(Math.sin(roamAng) * 65, 0, Math.cos(roamAng) * 65),
+        flankSign: i % 2 === 0 ? 1 : -1,
+      });
     });
   }
 
@@ -999,10 +1165,10 @@ export class GameWorldController {
 
   private computeRaceAiInput(v: DriveVehicle, idx: number): ControlInput {
     if (!this.trackCurve) return { throttle: 0, steer: 0, boost: false, handbrake: false };
-    const lookAheadT = (v.splineT + 0.045) % 1;
+    const lookAheadT = (v.splineT + 0.042) % 1;
     const targetPt = this.trackCurve.getPointAt(lookAheadT);
     const tan = this.trackCurve.getTangentAt(lookAheadT).normalize();
-    const laneOffset = ((idx % 3) - 1) * 3.1;
+    const laneOffset = ((idx % 3) - 1) * 4.4;
     targetPt.x += -tan.z * laneOffset;
     targetPt.z += tan.x * laneOffset;
 
@@ -1014,33 +1180,188 @@ export class GameWorldController {
     const steer = THREE.MathUtils.clamp(diff * 2.4, -1, 1);
     const sharpTurn = Math.abs(diff) > 0.55;
     const distDelta = this.player.totalProgress - v.totalProgress;
-    const throttle = sharpTurn ? 0.72 : distDelta > 0.12 ? 1.0 : 0.9;
+    const throttle = sharpTurn ? 0.72 : distDelta > 0.12 ? 1.0 : 0.92;
     const boost = !sharpTurn && v.boost > 55 && (distDelta > 0.05 || Math.sin(this.elapsedTime * 1.4 + idx) > 0.78);
-    return { throttle, steer, boost, handbrake: Math.abs(diff) > 0.9 };
+    return { throttle, steer, boost, handbrake: Math.abs(diff) > 0.95 };
   }
 
-  private computeDerbyAiInput(v: DriveVehicle): ControlInput {
-    let bestTarget: DriveVehicle | null = null;
-    let bestScore = Infinity;
-    for (const other of this.vehicles) {
-      if (other === v || other.wrecked) continue;
-      let dist = v.position.distanceTo(other.position);
-      if (other.isPlayer) dist *= 0.85;
-      if (dist < bestScore) {
-        bestScore = dist;
-        bestTarget = other;
+  private computeDerbyAiInput(v: DriveVehicle, dt: number): ControlInput {
+    const brain = this.aiBrains.get(v.id);
+    if (!brain) {
+      return { throttle: 0.7, steer: 0, boost: false, handbrake: false };
+    }
+
+    // 1. Stuck detection & clean reverse-out recovery so AIs never deadlock
+    if (brain.recoverTimer > 0) {
+      brain.recoverTimer -= dt;
+      return { throttle: -0.95, steer: brain.recoverSteer, boost: false, handbrake: false };
+    }
+    if (v.getSpeed() < 3.4) {
+      brain.stuckTimer += dt;
+      if (brain.stuckTimer > 0.65) {
+        brain.stuckTimer = 0;
+        brain.recoverTimer = 0.85;
+        brain.recoverSteer = Math.random() < 0.5 ? -1 : 1;
+        brain.decisionTimer = 0;
+        return { throttle: -0.95, steer: brain.recoverSteer, boost: false, handbrake: false };
+      }
+    } else {
+      brain.stuckTimer = Math.max(0, brain.stuckTimer - dt * 1.5);
+    }
+
+    // 2. Periodic intelligent tactical decision (keeps commitments instead of twitching at player!)
+    brain.decisionTimer -= dt;
+    const hpRatio = v.hp / Math.max(1, v.maxHp);
+
+    // Check if current target got wrecked
+    const curTarget = brain.targetId
+      ? this.vehicles.find((o) => o.id === brain.targetId && !o.wrecked) || null
+      : null;
+    if (brain.state === 'fight' && !curTarget) {
+      brain.decisionTimer = 0;
+    }
+
+    // Retaliation interrupt: if someone (AI or player) just slammed us hard, fight them back!
+    if (
+      v.lastHitBy &&
+      !v.lastHitBy.wrecked &&
+      v.lastHitBy !== v &&
+      this.elapsedTime - v.lastHitTime < 3.5 &&
+      brain.targetId !== v.lastHitBy.id &&
+      hpRatio >= 0.42
+    ) {
+      brain.state = 'fight';
+      brain.targetId = v.lastHitBy.id;
+      brain.decisionTimer = 3.2;
+    }
+
+    if (brain.decisionTimer <= 0) {
+      brain.decisionTimer = 2.4 + Math.random() * 2.4;
+      brain.flankSign = Math.random() < 0.5 ? 1 : -1;
+
+      // Priority A: Low HP? Break off and hunt the nearest Repair Wrench!
+      const bestRepair = hpRatio < 0.48 ? this.findNearestPickup(v.position, 'repair', 165) : null;
+      if (bestRepair) {
+        brain.state = 'heal';
+        brain.targetId = null;
+        brain.roamTarget.copy(bestRepair.pos);
+      } else {
+        // Priority B: Low Nitro & Nitro Core nearby? Grab it!
+        const bestNitro = v.boost < 28 ? this.findNearestPickup(v.position, 'nitro', 62) : null;
+        if (bestNitro && Math.random() < 0.65) {
+          brain.state = 'nitro';
+          brain.targetId = null;
+          brain.roamTarget.copy(bestNitro.pos);
+        } else if (brain.role === 'stunt_hunter' && Math.random() < 0.28 && this.springPads.length > 0) {
+          // Priority C: Stunt hunters occasionally hit springs / ramps across the stadium!
+          brain.state = 'roam';
+          brain.targetId = null;
+          const pad = this.springPads[Math.floor(Math.random() * this.springPads.length)];
+          brain.roamTarget.copy(pad.pos);
+        } else {
+          // Priority D: Pick a rival! Count how many OTHER AIs already target the player so they NEVER all swarm you!
+          const aliveAis = this.vehicles.filter((o) => !o.isPlayer && !o.wrecked).length;
+          let otherPlayerHunters = 0;
+          for (const [id, b] of this.aiBrains) {
+            if (id === v.id || b.state !== 'fight' || b.targetId !== this.player.id) continue;
+            const owner = this.vehicles.find((o) => o.id === id && !o.wrecked);
+            if (owner) otherPlayerHunters++;
+          }
+
+          // At kickoff (< 3.8s), AIs duel each other first unless you charge right into them!
+          const maxHunters = aliveAis >= 5 ? 2 : 1;
+          const allowPlayer =
+            aliveAis <= 1 ||
+            (this.elapsedTime > 3.8 && otherPlayerHunters < maxHunters) ||
+            v.position.distanceTo(this.player.position) < 28;
+
+          let chosen: DriveVehicle | null = null;
+          let bestScore = Infinity;
+
+          for (const other of this.vehicles) {
+            if (other === v || other.wrecked) continue;
+            if (other.isPlayer && !allowPlayer) continue;
+
+            const dist = v.position.distanceTo(other.position);
+            let score = dist;
+
+            // Slight preference for AI-vs-AI rivalries early so the whole stadium erupts in action!
+            if (other.isPlayer && aliveAis > 2) {
+              score *= 1.18;
+            }
+            // Opportunists hunt whichever car has the lowest HP % to steal KOs!
+            if (brain.role === 'opportunist') {
+              const otherHpRatio = other.hp / Math.max(1, other.maxHp);
+              score *= 0.65 + otherHpRatio * 0.7;
+            }
+            // Small variety jitter so everyone doesn't pick the exact same car
+            score *= 0.85 + Math.random() * 0.3;
+
+            if (score < bestScore) {
+              bestScore = score;
+              chosen = other;
+            }
+          }
+
+          if (chosen) {
+            brain.state = 'fight';
+            brain.targetId = chosen.id;
+          } else {
+            brain.state = 'roam';
+            brain.targetId = null;
+            const randAng = Math.random() * Math.PI * 2;
+            const randR = 35 + Math.random() * 68;
+            brain.roamTarget.set(Math.sin(randAng) * randR, 0, Math.cos(randAng) * randR);
+          }
+        }
       }
     }
 
-    if (!bestTarget) return { throttle: 0, steer: 0, boost: false, handbrake: false };
+    // 3. Compute steering waypoint from current tactical state
+    let targetX = brain.roamTarget.x;
+    let targetZ = brain.roamTarget.z;
+    let targetDist = Math.hypot(targetX - v.position.x, targetZ - v.position.z);
+    let wantsRamBoost = false;
 
-    let targetX = bestTarget.position.x + bestTarget.velocity.x * 0.35;
-    let targetZ = bestTarget.position.z + bestTarget.velocity.z * 0.35;
+    if (brain.state === 'fight' && curTarget) {
+      targetDist = v.position.distanceTo(curTarget.position);
+      const lead = brain.role === 'flanker' ? 0.55 : 0.35;
+      targetX = curTarget.position.x + curTarget.velocity.x * lead;
+      targetZ = curTarget.position.z + curTarget.velocity.z * lead;
 
+      // Flankers swing wide at medium range to T-bone targets cleanly instead of nose-locking!
+      if (brain.role === 'flanker' && targetDist > 22 && targetDist < 65) {
+        const dx = targetX - v.position.x;
+        const dz = targetZ - v.position.z;
+        const len = Math.max(1, Math.hypot(dx, dz));
+        targetX += (-dz / len) * 14 * brain.flankSign;
+        targetZ += (dx / len) * 14 * brain.flankSign;
+      }
+      wantsRamBoost = targetDist < 48 && targetDist > 10 && v.boost > 36;
+    } else if (brain.state === 'heal' || brain.state === 'nitro') {
+      // If someone already grabbed our pickup, re-decide immediately
+      if (targetDist < 5.5) {
+        brain.decisionTimer = 0;
+      }
+      wantsRamBoost = targetDist > 28 && v.boost > 55;
+    } else if (brain.state === 'roam' && targetDist < 12) {
+      brain.decisionTimer = 0;
+    }
+
+    // 4. Smart obstacle avoidance: skirt smoothly around the central smash pillar & outer walls
     const distFromCenter = Math.hypot(v.position.x, v.position.z);
-    if (distFromCenter < this.pillarRadius + 7.5) {
-      targetX = v.position.x * 2.2;
-      targetZ = v.position.z * 2.2;
+    if (this.pillarRadius > 0 && distFromCenter < this.pillarRadius + 11) {
+      // Steer tangentially around the pillar rather than bouncing off it
+      const rx = v.position.x / Math.max(0.1, distFromCenter);
+      const rz = v.position.z / Math.max(0.1, distFromCenter);
+      const tx = -rz * brain.flankSign;
+      const tz = rx * brain.flankSign;
+      targetX = v.position.x + (rx * 10 + tx * 16);
+      targetZ = v.position.z + (rz * 10 + tz * 16);
+    } else if (distFromCenter > ARENA_RADIUS - 16) {
+      // Curve back inward before scraping the coliseum wall
+      targetX = targetX * 0.45;
+      targetZ = targetZ * 0.45;
     }
 
     const desiredHeading = Math.atan2(targetX - v.position.x, targetZ - v.position.z);
@@ -1048,14 +1369,34 @@ export class GameWorldController {
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
 
-    if (v.getSpeed() < 3.5 && Math.abs(diff) > 1.7) {
-      return { throttle: -0.9, steer: diff > 0 ? -1 : 1, boost: false, handbrake: false };
-    }
+    const steer = THREE.MathUtils.clamp(diff * 2.4, -1, 1);
+    const aligned = Math.abs(diff) < 0.34;
+    const boost = aligned && wantsRamBoost;
+    const throttle = Math.abs(diff) > 1.35 ? 0.65 : 1.0;
+    const jump =
+      brain.role === 'stunt_hunter' &&
+      v.stats.springCount > 0 &&
+      v.grounded &&
+      v.jumpCooldown <= 0 &&
+      targetDist < 18 &&
+      Math.random() < 0.015;
+    return { throttle, steer, boost, handbrake: Math.abs(diff) > 1.1, jump };
+  }
 
-    const steer = THREE.MathUtils.clamp(diff * 2.5, -1, 1);
-    const aligned = Math.abs(diff) < 0.38;
-    const boost = aligned && bestScore < 45 && bestScore > 8 && v.boost > 35;
-    return { throttle: 1.0, steer, boost, handbrake: Math.abs(diff) > 1.05 };
+  private findNearestPickup(pos: THREE.Vector3, type: 'repair' | 'nitro', maxRange: number): PickupDef | null {
+    let best: PickupDef | null = null;
+    let bestSq = maxRange * maxRange;
+    for (const p of this.pickups) {
+      if (p.type !== type || p.cooldown > 0) continue;
+      const dx = p.pos.x - pos.x;
+      const dz = p.pos.z - pos.z;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < bestSq) {
+        bestSq = dSq;
+        best = p;
+      }
+    }
+    return best;
   }
 
   private resolveCollisions(): void {
@@ -1314,11 +1655,11 @@ export class GameWorldController {
     const N = this.trackSamples.length;
     if (N === 0) return;
 
-    const curIdx = Math.floor(((v.splineT % 1) + 1) % 1 * N);
+    const curIdx = Math.floor((((v.splineT % 1) + 1) % 1) * N);
     let bestIdx = curIdx;
     let bestDistSq = Infinity;
 
-    for (let offset = -14; offset <= 24; offset++) {
+    for (let offset = -18; offset <= 28; offset++) {
       const idx = (curIdx + offset + N) % N;
       const sample = this.trackSamples[idx];
       const dx = v.position.x - sample.x;
@@ -1327,6 +1668,20 @@ export class GameWorldController {
       if (dSq < bestDistSq) {
         bestDistSq = dSq;
         bestIdx = idx;
+      }
+    }
+
+    // Full-track fallback scan if a car ever launched or jumped far outside the local search window!
+    if (bestDistSq > 700) {
+      for (let idx = 0; idx < N; idx++) {
+        const sample = this.trackSamples[idx];
+        const dx = v.position.x - sample.x;
+        const dz = v.position.z - sample.z;
+        const dSq = dx * dx + dz * dz;
+        if (dSq < bestDistSq) {
+          bestDistSq = dSq;
+          bestIdx = idx;
+        }
       }
     }
 
@@ -1347,18 +1702,56 @@ export class GameWorldController {
     v.splineT = newT;
     v.totalProgress += deltaT;
 
+    // Smooth racing guardrail sliding right at the visible red/white brick barriers — NEVER gets stuck!
     const dist = Math.sqrt(bestDistSq);
-    if (dist > this.trackHalfWidth + 1.5) {
-      v.velocity.multiplyScalar(0.985);
-    }
-    const maxCorridor = this.trackHalfWidth + 10;
-    if (dist > maxCorridor) {
+    const railLimit = this.trackHalfWidth + 0.55 - Math.min(2.0, v.radius * 0.42);
+    if (dist > railLimit && dist > 0.01) {
       const sample = this.trackSamples[bestIdx];
+      const tan = this.trackTangents[bestIdx];
       const nx = (v.position.x - sample.x) / dist;
       const nz = (v.position.z - sample.z) / dist;
-      v.position.x = sample.x + nx * maxCorridor;
-      v.position.z = sample.z + nz * maxCorridor;
-      v.velocity.multiplyScalar(0.75);
+
+      // Keep car cleanly inside the visible guardrail
+      v.position.x = sample.x + nx * railLimit;
+      v.position.z = sample.z + nz * railLimit;
+
+      // Reflect ONLY the outward perpendicular velocity so forward momentum glides cleanly along the wall!
+      const outVel = v.velocity.x * nx + v.velocity.z * nz;
+      if (outVel > 0) {
+        v.velocity.x -= nx * outVel * 1.28;
+        v.velocity.z -= nz * outVel * 1.28;
+        v.velocity.multiplyScalar(0.95);
+        if (v.isPlayer && outVel > 14) {
+          sound.playCrash(Math.min(0.45, outVel / 42));
+          this.cameraShake = Math.max(this.cameraShake, 0.25);
+        }
+      }
+
+      // Gently nudge heading toward track tangent if pinned nose-first into the barrier at low speed
+      const fwd = v.getForwardVector();
+      const noseIntoWall = fwd.x * nx + fwd.z * nz;
+      if (noseIntoWall > 0.55 && v.getSpeed() < 12) {
+        const trackHeading = Math.atan2(tan.x, tan.z);
+        let hDiff = trackHeading - v.heading;
+        while (hDiff > Math.PI) hDiff -= Math.PI * 2;
+        while (hDiff < -Math.PI) hDiff += Math.PI * 2;
+        v.heading += Math.sign(hDiff) * 0.06;
+      }
+    }
+
+    // Wrong-way indicator for the player
+    if (v.isPlayer && this.trackTangents[bestIdx]) {
+      const fwd = v.getForwardVector();
+      const tan = this.trackTangents[bestIdx];
+      const alignment = fwd.x * tan.x + fwd.z * tan.z;
+      if (alignment < -0.45 && v.getSpeed() > 4) {
+        this.wrongWayTimer += 0.016;
+        if (this.wrongWayTimer > 0.5 && this.eventBannerTimer <= 0.1) {
+          this.showBanner('WRONG WAY! TURN AROUND ↩');
+        }
+      } else {
+        this.wrongWayTimer = 0;
+      }
     }
 
     if (!v.finished && v.totalProgress >= TOTAL_LAPS) {
@@ -1394,6 +1787,8 @@ export class GameWorldController {
       this.score += 1000 * this.wave;
       this.player.boost = Math.min(100, this.player.boost + 45);
       this.showBanner(`WRECKED ${victim.name.toUpperCase()}! +${1000 * this.wave}`);
+    } else if (attacker && attacker !== victim) {
+      this.showBanner(`💥 ${attacker.name.toUpperCase()} KO'D ${victim.name.toUpperCase()}!`);
     } else {
       this.showBanner(`${victim.name.toUpperCase()} WRECKED!`);
     }
@@ -1677,7 +2072,7 @@ export class GameWorldController {
       if (v.isPlayer) {
         input = this.finished ? { throttle: 0, steer: 0, boost: false, handbrake: true } : playerInput;
       } else {
-        input = this.mode === 'race' ? this.computeRaceAiInput(v, idx) : this.computeDerbyAiInput(v);
+        input = this.mode === 'race' ? this.computeRaceAiInput(v, idx) : this.computeDerbyAiInput(v, dt);
       }
       v.updatePhysics(dt, input, gh, this.debris, canDrive);
       if (v.isPlayer) {
@@ -1695,12 +2090,13 @@ export class GameWorldController {
     this.resolveCollisions();
     this.debris.update(dt);
 
-    // Update floating race waypoint ahead of player
+    // Update floating 3D directional race arrow ahead of player pointing down the track!
     if (this.waypointMesh && this.trackCurve) {
-      const wpT = (this.player.splineT + 0.08) % 1;
+      const wpT = (this.player.splineT + 0.055) % 1;
       const wpPt = this.trackCurve.getPointAt(wpT);
-      this.waypointMesh.position.set(wpPt.x, 4.6 + Math.sin(this.elapsedTime * 5) * 0.5, wpPt.z);
-      this.waypointMesh.rotation.y += dt * 3;
+      const wpTan = this.trackCurve.getTangentAt(wpT).normalize();
+      this.waypointMesh.position.set(wpPt.x, 4.4 + Math.sin(this.elapsedTime * 5) * 0.45, wpPt.z);
+      this.waypointMesh.rotation.y = Math.atan2(wpTan.x, wpTan.z);
     }
 
     this.updateCamera(dt);

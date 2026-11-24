@@ -235,6 +235,7 @@ export class DriveVehicle {
   private bricks: AttachedBrick[] = [];
   private wheels: WheelRef[] = [];
   private thrusters: ThrusterRef[] = [];
+  private saws: THREE.Object3D[] = [];
   private boostLight: THREE.PointLight | null = null;
   private nameplateSprite: THREE.Sprite | null = null;
   private boostParticleTimer = 0;
@@ -261,7 +262,7 @@ export class DriveVehicle {
 
     if (!isPlayer && nameplateColor) {
       this.nameplateSprite = this.createNameplate(name, nameplateColor);
-      this.nameplateSprite.position.set(0, 4.4, 0);
+      this.nameplateSprite.position.set(0, 4.6, 0);
       this.root.add(this.nameplateSprite);
     }
   }
@@ -291,7 +292,7 @@ export class DriveVehicle {
     const cx = (minX + maxX) / 2;
     const cz = (minZ + maxZ) / 2;
     const liftY = -minBottomY + 0.04;
-    this.radius = Math.min(4.0, Math.max(2.1, Math.max(maxX - minX, maxZ - minZ) * 0.42));
+    this.radius = Math.min(4.2, Math.max(2.1, Math.max(maxX - minX, maxZ - minZ) * 0.42));
 
     blueprint.bricks.forEach((brickData, i) => {
       const part = PARTS_MAP[brickData.partId];
@@ -310,7 +311,7 @@ export class DriveVehicle {
         this.wheels.push({
           pivot,
           spinMesh,
-          isFront: localPos.z > 0.2,
+          isFront: brickData.partId !== 'tank_tread' && localPos.z > 0.2,
           radius: part.wheelRadius ?? 0.85,
         });
         this.bricks.push({
@@ -329,6 +330,10 @@ export class DriveVehicle {
           if (flame) {
             this.thrusters.push({ flame, localPos });
           }
+        }
+        const saw = mesh.getObjectByName('saw_spin');
+        if (saw) {
+          this.saws.push(saw);
         }
         const isCore = brickData.gy <= 0 && part.category === 'chassis';
         this.bricks.push({
@@ -534,6 +539,12 @@ export class DriveVehicle {
         w.pivot.rotation.y = this.currentSteerVisual;
       }
       w.spinMesh.rotation.x += (fwdSpeed / Math.max(0.5, w.radius)) * dt;
+    }
+
+    // Spin front demolition buzzsaw blades at ferocious RPM!
+    const sawRpm = this.isBoosting ? 28 : 14 + Math.abs(fwdSpeed) * 0.25;
+    for (const saw of this.saws) {
+      saw.rotation.y += sawRpm * dt;
     }
 
     // Thruster flames & exhaust particles (matching Screenshot 3's glowing blue jets!)

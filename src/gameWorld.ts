@@ -49,7 +49,7 @@ export interface TouchInputState {
   drift: boolean;
 }
 
-const ARENA_RADIUS = 62;
+const ARENA_RADIUS = 135;
 const TOTAL_LAPS = 3;
 
 export class GameWorldController {
@@ -73,7 +73,7 @@ export class GameWorldController {
   private boostPads: BoostPadDef[] = [];
   private pickups: PickupDef[] = [];
   private cones: KnockableCone[] = [];
-  private pillarRadius = 6.2;
+  private pillarRadius = 9.5;
 
   // Input state
   private keys = new Set<string>();
@@ -201,7 +201,7 @@ export class GameWorldController {
       this.player.velocity.set(0, 0, 0);
       this.player.vy = 0;
     } else {
-      this.player.position.set(0, 1.2, -32);
+      this.player.position.set(0, 1.2, -78);
       this.player.heading = 0;
       this.player.velocity.set(0, 0, 0);
       this.player.vy = 0;
@@ -212,9 +212,9 @@ export class GameWorldController {
 
   private setupLighting(scene: THREE.Scene): void {
     const isRace = this.mode === 'race';
-    const skyColor = isRace ? 0x62a8e5 : 0x2a3444;
+    const skyColor = isRace ? 0x62a8e5 : 0x263244;
     scene.background = new THREE.Color(skyColor);
-    scene.fog = new THREE.Fog(skyColor, isRace ? 130 : 90, isRace ? 420 : 250);
+    scene.fog = new THREE.Fog(skyColor, isRace ? 140 : 160, isRace ? 440 : 420);
 
     const hemi = new THREE.HemisphereLight(isRace ? 0xe0f2fe : 0xdbeafe, isRace ? 0xc26d42 : 0x374151, isRace ? 0.95 : 0.9);
     scene.add(hemi);
@@ -464,8 +464,8 @@ export class GameWorldController {
     const gridSlots = [0.992, 0.985, 0.978, 0.971, 0.964, 0.957];
     const laneOffsets = [-3.6, 3.6, -3.6, 3.6, -3.6, 3.6];
 
-    // Spawn 5 AI racers
-    AI_RACER_PROFILES.forEach((profile, idx) => {
+    // Spawn 5 badass AI racers on the Canyon Circuit
+    AI_RACER_PROFILES.slice(0, 5).forEach((profile, idx) => {
       const bpBase = STARTER_BLUEPRINTS.find((s) => s.id === profile.blueprintId) || STARTER_BLUEPRINTS[0];
       const v = new DriveVehicle(`ai_${idx}`, profile.name, cloneBlueprint(bpBase), false, false, profile.tint);
       this.placeOnSpline(v, gridSlots[idx], laneOffsets[idx]);
@@ -495,12 +495,13 @@ export class GameWorldController {
   }
 
   // =========================================================================
-  // DESTRUCTION DERBY BOWL ARENA & STUNT PARK (Inspired by Screenshot 2!)
+  // MEGA DESTRUCTION DERBY COLISEUM & STUNT PARK (135-radius massive bowl!)
   // =========================================================================
   private buildDerbyArenaWorld(scene: THREE.Scene, isFreeRoam: boolean): void {
     const floorTex = createArenaFloorTexture();
+    floorTex.repeat.set(28, 28);
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(ARENA_RADIUS + 4, 64),
+      new THREE.CircleGeometry(ARENA_RADIUS + 6, 80),
       new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.72, metalness: 0.08 })
     );
     floor.rotation.x = -Math.PI / 2;
@@ -509,98 +510,143 @@ export class GameWorldController {
 
     // Outer stadium apron
     const apron = new THREE.Mesh(
-      new THREE.PlaneGeometry(360, 360),
-      new THREE.MeshStandardMaterial({ color: 0x1d232e, roughness: 0.9 })
+      new THREE.PlaneGeometry(760, 760),
+      new THREE.MeshStandardMaterial({ color: 0x1a212c, roughness: 0.9 })
     );
     apron.rotation.x = -Math.PI / 2;
     apron.position.y = -0.1;
     scene.add(apron);
 
-    // Painted arena hazard rings
-    const innerRing = new THREE.Mesh(
-      new THREE.RingGeometry(18, 19.2, 48),
-      new THREE.MeshBasicMaterial({ color: 0xf4be17, side: THREE.DoubleSide })
-    );
-    innerRing.rotation.x = -Math.PI / 2;
-    innerRing.position.y = 0.03;
-    scene.add(innerRing);
+    // Painted arena racing & hazard lanes
+    const ringSpecs = [
+      { r1: 28, r2: 29.8, color: 0xf4be17 },
+      { r1: 76, r2: 77.6, color: 0x38bdf8 },
+      { r1: ARENA_RADIUS - 4.5, r2: ARENA_RADIUS - 2.6, color: 0xd92626 },
+    ];
+    for (const rs of ringSpecs) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(rs.r1, rs.r2, 72),
+        new THREE.MeshBasicMaterial({ color: rs.color, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.03;
+      scene.add(ring);
+    }
 
-    const outerRing = new THREE.Mesh(
-      new THREE.RingGeometry(ARENA_RADIUS - 3.5, ARENA_RADIUS - 2.3, 64),
-      new THREE.MeshBasicMaterial({ color: 0xd92626, side: THREE.DoubleSide })
-    );
-    outerRing.rotation.x = -Math.PI / 2;
-    outerRing.position.y = 0.03;
-    scene.add(outerRing);
-
-    // Segmented Brick-Wall Stadium Perimeter (like Screenshot 2's concrete brick walls!)
-    const wallCount = 32;
-    const wallMatLight = new THREE.MeshStandardMaterial({ color: 0xc2c8d2, roughness: 0.65 });
-    const wallMatAccent = new THREE.MeshStandardMaterial({ color: 0xd92626, roughness: 0.45 });
-    const segLen = (2 * Math.PI * ARENA_RADIUS) / wallCount + 0.6;
+    // Segmented Brick-Wall Coliseum Perimeter + Stadium Floodlight Towers!
+    const wallCount = 56;
+    const wallMatLight = new THREE.MeshStandardMaterial({ color: 0xbcc4d0, roughness: 0.65 });
+    const wallMatRed = new THREE.MeshStandardMaterial({ color: 0xd92626, roughness: 0.45 });
+    const wallMatYellow = new THREE.MeshStandardMaterial({ color: 0xf4be17, roughness: 0.45 });
+    const towerMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.4 });
+    const lampMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xe0f2fe,
+      emissiveIntensity: 2.0,
+    });
+    const segLen = (2 * Math.PI * ARENA_RADIUS) / wallCount + 0.8;
 
     for (let i = 0; i < wallCount; i++) {
       const ang = (i / wallCount) * Math.PI * 2;
       const wall = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.BoxGeometry(segLen, 8.5, 2.4), wallMatLight);
-      base.position.y = 4.25;
+      const base = new THREE.Mesh(new THREE.BoxGeometry(segLen, 10.5, 3.0), wallMatLight);
+      base.position.y = 5.25;
       base.castShadow = true;
       base.receiveShadow = true;
       const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(segLen, 1.3, 2.65),
-        i % 2 === 0 ? wallMatAccent : new THREE.MeshStandardMaterial({ color: 0xf4be17, roughness: 0.45 })
+        new THREE.BoxGeometry(segLen, 1.6, 3.3),
+        i % 2 === 0 ? wallMatRed : wallMatYellow
       );
-      stripe.position.y = 1.6;
+      stripe.position.y = 2.0;
       wall.add(base, stripe);
+
+      // Stadium floodlight towers every 7 segments
+      if (i % 7 === 0) {
+        const pole = new THREE.Mesh(new THREE.BoxGeometry(1.8, 28, 1.8), towerMat);
+        pole.position.set(0, 14, 1.5);
+        const bank = new THREE.Mesh(new THREE.BoxGeometry(9.5, 2.8, 1.2), lampMat);
+        bank.position.set(0, 27.5, 0.2);
+        wall.add(pole, bank);
+      }
+
       wall.position.set(Math.sin(ang) * ARENA_RADIUS, 0, Math.cos(ang) * ARENA_RADIUS);
       wall.rotation.y = ang;
       scene.add(wall);
     }
 
-    // Central reinforced Smash Pillar (in Derby mode; open jump centerpiece in Free Roam)
+    // Central Coliseum Smash Tower (in Derby; mega jump plaza in Stunt Park)
     if (!isFreeRoam) {
+      this.pillarRadius = 9.5;
       const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(this.pillarRadius, this.pillarRadius + 0.6, 11, 16),
-        new THREE.MeshStandardMaterial({ color: 0x4b5361, roughness: 0.48, metalness: 0.3 })
+        new THREE.CylinderGeometry(this.pillarRadius, this.pillarRadius + 1.0, 15, 20),
+        new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.48, metalness: 0.35 })
       );
-      pillar.position.y = 5.5;
+      pillar.position.y = 7.5;
       pillar.castShadow = true;
       pillar.receiveShadow = true;
-      const band = new THREE.Mesh(
-        new THREE.CylinderGeometry(this.pillarRadius + 0.25, this.pillarRadius + 0.25, 1.6, 16),
-        new THREE.MeshStandardMaterial({ color: 0xf4be17, roughness: 0.4 })
+      const band1 = new THREE.Mesh(
+        new THREE.CylinderGeometry(this.pillarRadius + 0.35, this.pillarRadius + 0.35, 2.0, 20),
+        wallMatYellow
       );
-      band.position.y = 2.0;
-      scene.add(pillar, band);
+      band1.position.y = 2.4;
+      const band2 = new THREE.Mesh(
+        new THREE.CylinderGeometry(this.pillarRadius + 0.35, this.pillarRadius + 0.35, 1.4, 20),
+        wallMatRed
+      );
+      band2.position.y = 13.5;
+      scene.add(pillar, band1, band2);
     } else {
       this.pillarRadius = 0;
+      // Central Stunt Park Big-Air Mega Ramp!
+      this.createRamp(scene, 0, 0, 0, 14, 18, 5.4);
     }
 
-    // 4 Stunt Jump Ramps positioned symmetrically around the bowl
-    this.createRamp(scene, 0, 28, 0, 8.2, 10.5, 3.2);
-    this.createRamp(scene, 0, -28, Math.PI, 8.2, 10.5, 3.2);
-    this.createRamp(scene, 28, 0, Math.PI / 2, 8.2, 10.5, 3.2);
-    this.createRamp(scene, -28, 0, -Math.PI / 2, 8.2, 10.5, 3.2);
+    // 4 Inner Bowl Jump Ramps
+    this.createRamp(scene, 0, 48, 0, 10.5, 14.0, 4.0);
+    this.createRamp(scene, 0, -48, Math.PI, 10.5, 14.0, 4.0);
+    this.createRamp(scene, 48, 0, Math.PI / 2, 10.5, 14.0, 4.0);
+    this.createRamp(scene, -48, 0, -Math.PI / 2, 10.5, 14.0, 4.0);
 
-    // 4 Boost pads
-    this.createBoostPad(scene, new THREE.Vector3(24, 0, 24), -Math.PI * 0.75);
-    this.createBoostPad(scene, new THREE.Vector3(-24, 0, 24), Math.PI * 0.75);
-    this.createBoostPad(scene, new THREE.Vector3(24, 0, -24), -Math.PI * 0.25);
-    this.createBoostPad(scene, new THREE.Vector3(-24, 0, -24), Math.PI * 0.25);
+    // 4 Outer Corner Mega-Air Stunt Ramps!
+    this.createRamp(scene, 68, 68, -Math.PI * 0.75, 12.0, 16.0, 4.8);
+    this.createRamp(scene, -68, 68, Math.PI * 0.75, 12.0, 16.0, 4.8);
+    this.createRamp(scene, 68, -68, -Math.PI * 0.25, 12.0, 16.0, 4.8);
+    this.createRamp(scene, -68, -68, Math.PI * 0.25, 12.0, 16.0, 4.8);
 
-    // Repair Wrench & Nitro Core pickups
-    this.createPickup(scene, new THREE.Vector3(0, 1.4, 44), 'repair');
-    this.createPickup(scene, new THREE.Vector3(0, 1.4, -44), 'repair');
-    this.createPickup(scene, new THREE.Vector3(44, 1.4, 0), 'nitro');
-    this.createPickup(scene, new THREE.Vector3(-44, 1.4, 0), 'nitro');
+    // 8 High-Speed Plasma Boost Pads across inner & outer speed rings
+    const padCoords: [number, number, number][] = [
+      [34, 34, -Math.PI * 0.75],
+      [-34, 34, Math.PI * 0.75],
+      [34, -34, -Math.PI * 0.25],
+      [-34, -34, Math.PI * 0.25],
+      [0, 96, Math.PI / 2],
+      [0, -96, -Math.PI / 2],
+      [96, 0, 0],
+      [-96, 0, Math.PI],
+    ];
+    for (const [px, pz, rot] of padCoords) {
+      this.createBoostPad(scene, new THREE.Vector3(px, 0, pz), rot);
+    }
 
-    // Scatterable orange safety cones (inspired by Screenshot 2!)
+    // 6 Repair Wrenches & 6 Nitro Cores distributed across the huge arena
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      this.createPickup(scene, new THREE.Vector3(Math.sin(a) * 105, 1.5, Math.cos(a) * 105), i % 2 === 0 ? 'repair' : 'nitro');
+      const aInner = a + Math.PI / 6;
+      this.createPickup(scene, new THREE.Vector3(Math.sin(aInner) * 58, 1.5, Math.cos(aInner) * 58), i % 2 === 0 ? 'nitro' : 'repair');
+    }
+
+    // 36 Scatterable orange safety cones arranged in clusters & hazard rings!
     const coneMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.45 });
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
     const conePositions: [number, number][] = [];
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      conePositions.push([Math.sin(a) * 38, Math.cos(a) * 38]);
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      conePositions.push([Math.sin(a) * 78, Math.cos(a) * 78]);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      conePositions.push([Math.sin(a) * 32, Math.cos(a) * 32]);
     }
     for (const [cx, cz] of conePositions) {
       const g = new THREE.Group();
@@ -628,7 +674,7 @@ export class GameWorldController {
     const enableLights = this.engine.getQuality() === 'ultra';
 
     this.player = new DriveVehicle('player', this.playerBlueprint.name, this.playerBlueprint, true, enableLights);
-    this.player.position.set(0, 0.1, -36);
+    this.player.position.set(0, 0.1, -82);
     this.player.heading = 0;
     this.player.syncTransform();
     scene.add(this.player.root);
@@ -636,18 +682,18 @@ export class GameWorldController {
 
     if (isFreeRoam) return;
 
-    // Spawn 5 AI Derby contenders in a ring facing inward!
-    const count = 5;
+    // Spawn 8 badass AI Derby contenders in a wide ring facing inward!
+    const count = 8;
     for (let i = 0; i < count; i++) {
       const profile = AI_RACER_PROFILES[i % AI_RACER_PROFILES.length];
       const bpBase = STARTER_BLUEPRINTS.find((s) => s.id === profile.blueprintId) || STARTER_BLUEPRINTS[3];
       const v = new DriveVehicle(`derby_ai_${i}`, profile.name, cloneBlueprint(bpBase), false, false, profile.tint);
       // Scale rival durability slightly on later waves
-      v.maxHp = Math.round(v.maxHp * (0.85 + this.wave * 0.14));
+      v.maxHp = Math.round(v.maxHp * (0.82 + this.wave * 0.14));
       v.hp = v.maxHp;
 
       const ang = ((i + 1) / (count + 1)) * Math.PI * 2;
-      const r = 38;
+      const r = 84;
       v.position.set(Math.sin(ang) * r, 0.1, Math.cos(ang) * r);
       v.heading = Math.atan2(-v.position.x, -v.position.z);
       v.syncTransform();

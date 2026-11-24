@@ -366,7 +366,78 @@ body,
 .garage-bottom-stack {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+}
+
+.nudge-strip {
+  align-self: center;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-color: rgba(56, 232, 255, 0.35);
+}
+
+.nudge-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.nudge-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-cyan);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.nudge-btn {
+  height: 30px;
+  min-width: 32px;
+  padding: 0 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(34, 46, 66, 0.92);
+  color: #f8fafc;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.1s ease, background 0.12s ease;
+}
+
+.nudge-btn:active {
+  transform: scale(0.92);
+  background: var(--accent-cyan);
+  color: #0e131b;
+}
+
+.nudge-btn.tall {
+  padding: 0 8px;
+  font-size: 11px;
+  color: #fde047;
+}
+
+.nudge-btn.danger {
+  background: rgba(224, 49, 49, 0.85);
+  border-color: transparent;
+}
+
+.nudge-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.16);
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
 .action-strip {

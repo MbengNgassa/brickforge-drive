@@ -56,6 +56,57 @@ export function getPartIconSvg(partId: BrickPartId, colorHex: string): string {
     </svg>`;
   }
 
+  if (partId === 'tank_tread') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <rect x="6" y="16" width="52" height="22" rx="11" fill="#1b202a" stroke="#475569" stroke-width="2.5"/>
+      <circle cx="18" cy="27" r="6" fill="${c}" stroke="#cbd5e1" stroke-width="1.5"/>
+      <circle cx="32" cy="27" r="6" fill="${c}" stroke="#cbd5e1" stroke-width="1.5"/>
+      <circle cx="46" cy="27" r="6" fill="${c}" stroke="#cbd5e1" stroke-width="1.5"/>
+    </svg>`;
+  }
+
+  if (partId === 'saw_blade') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <rect x="10" y="20" width="22" height="14" rx="3" fill="${c}"/>
+      <circle cx="42" cy="27" r="14" fill="#cbd5e1" stroke="#475569" stroke-width="2.5" stroke-dasharray="5 3"/>
+      <circle cx="42" cy="27" r="5" fill="#e03131"/>
+    </svg>`;
+  }
+
+  if (partId === 'turret_blaster') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <rect x="12" y="20" width="26" height="18" rx="4" fill="${c}"/>
+      <rect x="34" y="21" width="24" height="5" rx="2" fill="#475569"/>
+      <rect x="34" y="29" width="24" height="5" rx="2" fill="#475569"/>
+      <circle cx="24" cy="18" r="7" fill="${c}" stroke="rgba(255,255,255,0.2)" stroke-width="1.2"/>
+    </svg>`;
+  }
+
+  if (partId === 'exhaust_pipes') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <rect x="18" y="26" width="28" height="16" rx="3" fill="${c}"/>
+      <rect x="21" y="9" width="7" height="26" rx="3" fill="#e2e8f0" stroke="#64748b" stroke-width="1.2"/>
+      <rect x="36" y="9" width="7" height="26" rx="3" fill="#e2e8f0" stroke="#64748b" stroke-width="1.2"/>
+      <polygon points="24,4 21,10 28,10" fill="#fb923c"/>
+      <polygon points="39,4 36,10 43,10" fill="#fb923c"/>
+    </svg>`;
+  }
+
+  if (partId === 'roll_cage') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <path d="M12,40 L16,14 L48,14 L52,40" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="16" y1="26" x2="48" y2="26" stroke="#cbd5e1" stroke-width="3"/>
+    </svg>`;
+  }
+
+  if (partId === 'bull_horns') {
+    return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
+      <rect x="18" y="26" width="28" height="12" rx="3" fill="${c}"/>
+      <path d="M22,28 Q8,26 8,12 Q14,20 24,22" fill="#e2e8f0"/>
+      <path d="M42,28 Q56,26 56,12 Q50,20 40,22" fill="#e2e8f0"/>
+    </svg>`;
+  }
+
   if (partId === 'armor_plate') {
     return `<svg viewBox="0 0 64 52" class="part-svg" aria-hidden="true">
       <rect x="14" y="14" width="36" height="28" rx="4" fill="${c}"/>

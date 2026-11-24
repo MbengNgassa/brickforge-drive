@@ -151,13 +151,26 @@ class BrickForgeApp {
           <aside class="panel stats-card interactive" id="stats-card"></aside>
         </div>
 
-        <!-- Bottom Workspace: Compact Action Strip + Collapsible Visual Brick Dock -->
+        <!-- Bottom Workspace: Nudge Strip + Compact Action Strip + Collapsible Visual Brick Dock -->
         <div class="garage-bottom-stack">
+          <div id="nudge-strip" class="panel nudge-strip interactive">
+            <span id="nudge-label" class="nudge-label">Slide</span>
+            <button id="nudge-left" class="nudge-btn" title="Move left (←)">◄</button>
+            <button id="nudge-fwd" class="nudge-btn" title="Move forward (↑)">▲</button>
+            <button id="nudge-back" class="nudge-btn" title="Move back (↓)">▼</button>
+            <button id="nudge-right" class="nudge-btn" title="Move right (→)">►</button>
+            <span class="nudge-sep"></span>
+            <button id="nudge-up" class="nudge-btn tall" title="Raise 1 plate (E)">⬆ Up</button>
+            <button id="nudge-down" class="nudge-btn tall" title="Lower 1 plate (Q)">⬇ Dn</button>
+            <button id="nudge-delete" class="nudge-btn danger hidden" title="Delete selected brick (Del)">🗑</button>
+          </div>
+
           <div class="panel action-strip interactive">
-            <button id="tool-snap" class="btn btn-green" title="Snap the green preview brick onto the car">✓ Snap</button>
+            <button id="tool-snap" class="btn btn-green" title="Snap the green preview brick onto the car (Enter)">✓ Snap</button>
             <button id="tool-place" class="btn btn-active" title="Add bricks (1)">+ Build</button>
-            <button id="tool-paint" class="btn" title="Paint existing bricks (2)">🎨 Paint</button>
-            <button id="tool-erase" class="btn" title="Remove bricks (3)">✕ Erase</button>
+            <button id="tool-move" class="btn" title="Select &amp; move placed bricks (2)">✋ Move</button>
+            <button id="tool-paint" class="btn" title="Paint existing bricks (3)">🎨 Paint</button>
+            <button id="tool-erase" class="btn" title="Remove bricks (4)">✕ Erase</button>
             <button id="tool-rotate" class="btn" title="Rotate brick 90° (R)">↻ Turn</button>
             <button id="tool-mirror" class="btn" title="Mirror left/right symmetry (M)">⇄ Mirror</button>
             <button id="tool-recenter" class="btn btn-icon" title="Center camera on car">🎯</button>
@@ -283,10 +296,20 @@ class BrickForgeApp {
       this.garage.placeCurrentPreview();
     });
     document.getElementById('tool-place')!.addEventListener('click', () => this.garage.setTool('place'));
+    document.getElementById('tool-move')!.addEventListener('click', () => this.garage.setTool('move'));
     document.getElementById('tool-paint')!.addEventListener('click', () => this.garage.setTool('paint'));
     document.getElementById('tool-erase')!.addEventListener('click', () => this.garage.setTool('erase'));
     document.getElementById('tool-rotate')!.addEventListener('click', () => this.garage.rotatePart());
     document.getElementById('tool-mirror')!.addEventListener('click', () => this.garage.toggleMirror());
+
+    // Nudge D-Pad controls (work during placement preview AND after placing in Move mode!)
+    document.getElementById('nudge-left')!.addEventListener('click', () => this.garage.nudge(-1, 0, 0));
+    document.getElementById('nudge-right')!.addEventListener('click', () => this.garage.nudge(1, 0, 0));
+    document.getElementById('nudge-fwd')!.addEventListener('click', () => this.garage.nudge(0, 1, 0));
+    document.getElementById('nudge-back')!.addEventListener('click', () => this.garage.nudge(0, -1, 0));
+    document.getElementById('nudge-up')!.addEventListener('click', () => this.garage.nudge(0, 0, 1));
+    document.getElementById('nudge-down')!.addEventListener('click', () => this.garage.nudge(0, 0, -1));
+    document.getElementById('nudge-delete')!.addEventListener('click', () => this.garage.deleteSelected());
     document.getElementById('tool-recenter')!.addEventListener('click', () => {
       this.garage.recenterCamera();
       sound.playUiTick();
@@ -356,15 +379,15 @@ class BrickForgeApp {
           <button id="sheet-derby" class="play-mode-card derby">
             <span class="play-mode-icon">💥</span>
             <div>
-              <strong>Destruction Derby Arena</strong>
-              <span>Smash rival cars brick-by-brick, collect repairs &amp; survive waves</span>
+              <strong>Mega Destruction Derby</strong>
+              <span>Giant coliseum arena • 8 badass rivals • brick-by-brick smashing!</span>
             </div>
           </button>
           <button id="sheet-freeroam" class="play-mode-card stunt">
             <span class="play-mode-icon">🚀</span>
             <div>
-              <strong>Stunt Park Test Drive</strong>
-              <span>Open arena with ramps &amp; boost pads to test your build</span>
+              <strong>Mega Stunt Park Test</strong>
+              <span>Huge stadium bowl with 8 mega-ramps &amp; boost pads to test builds</span>
             </div>
           </button>
         </div>
@@ -511,16 +534,20 @@ class BrickForgeApp {
     const textEl = document.getElementById('coach-text')!;
     const partName = PARTS_MAP[this.garage.activePartId]?.shortName || 'Brick';
 
-    if (this.garage.activeTool === 'paint') {
+    if (this.garage.activeTool === 'move') {
+      const sel = this.garage.getSelectedBrick();
+      const selName = sel ? PARTS_MAP[sel.partId]?.shortName || 'Brick' : null;
+      textEl.innerHTML = selName
+        ? `<b>Move [${selName}]:</b> Use <b>◄ ▲ ▼ ► ⬆ ⬇</b> arrows, <b>↻ Turn</b>, or tap another brick`
+        : `<b>Move Mode:</b> Tap any brick on your car to select &amp; move it`;
+    } else if (this.garage.activeTool === 'paint') {
       textEl.innerHTML = `<b>Paint Mode:</b> Tap any brick on the car to recolor it`;
     } else if (this.garage.activeTool === 'erase') {
       textEl.innerHTML = `<b>Erase Mode:</b> Tap any brick on the car to remove it`;
     } else if (this.garage.placedCountSession === 0) {
-      textEl.innerHTML = `<b>Build:</b> Tap car to snap <b>${partName}</b> (or tap <b>✓ Snap</b>) • Drag to spin`;
-    } else if (this.garage.placedCountSession === 1) {
-      textEl.innerHTML = `Nice! Keep snapping bricks or press <b>PLAY ▶</b> to Race / Derby!`;
+      textEl.innerHTML = `<b>Build:</b> Position <b>${partName}</b> with <b>◄▲▼►⬆⬇</b> then tap <b>✓ Snap</b> (or tap car)`;
     } else {
-      textEl.innerHTML = `Selected: <b>${partName}</b> • Tap anywhere on car to snap • Drag to orbit`;
+      textEl.innerHTML = `<b>${partName}</b> ready • Tap car or <b>✓ Snap</b> • Tap <b>✋ Move</b> to adjust placed bricks`;
     }
   }
 
@@ -533,11 +560,21 @@ class BrickForgeApp {
     (document.getElementById('btn-undo') as HTMLButtonElement).disabled = !this.garage.canUndo();
     (document.getElementById('btn-redo') as HTMLButtonElement).disabled = !this.garage.canRedo();
 
-    // Tool active states
-    document.getElementById('tool-snap')!.classList.toggle('hidden', this.garage.activeTool !== 'place');
-    document.getElementById('tool-place')!.classList.toggle('btn-active', this.garage.activeTool === 'place');
+    // Tool active states & Nudge Strip visibility
+    const isPlace = this.garage.activeTool === 'place';
+    const isMove = this.garage.activeTool === 'move';
+    document.getElementById('tool-snap')!.classList.toggle('hidden', !isPlace);
+    document.getElementById('tool-place')!.classList.toggle('btn-active', isPlace);
+    document.getElementById('tool-move')!.classList.toggle('btn-active', isMove);
     document.getElementById('tool-paint')!.classList.toggle('btn-active', this.garage.activeTool === 'paint');
     document.getElementById('tool-erase')!.classList.toggle('btn-active', this.garage.activeTool === 'erase');
+
+    const nudgeStrip = document.getElementById('nudge-strip')!;
+    const showNudge = isPlace || (isMove && Boolean(this.garage.selectedBrickUid));
+    nudgeStrip.classList.toggle('hidden', !showNudge);
+    document.getElementById('nudge-label')!.textContent = isMove ? 'Move Brick' : 'Aim Brick';
+    document.getElementById('nudge-delete')!.classList.toggle('hidden', !isMove);
+
     const mirrorBtn = document.getElementById('tool-mirror')!;
     mirrorBtn.textContent = this.garage.mirrorX ? '⇄ Mirror ON' : '⇄ Mirror';
     mirrorBtn.classList.toggle('btn-active', this.garage.mirrorX);

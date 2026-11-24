@@ -453,6 +453,188 @@ export function createBrickMesh(partId: BrickPartId, colorHex: string): THREE.Gr
     return group;
   }
 
+  if (partId === 'tank_tread') {
+    const treadOuter = new THREE.Mesh(
+      new THREE.BoxGeometry(W * 0.92, H * 0.85, D * 0.98),
+      darkRubberMat
+    );
+    treadOuter.position.y = -PLATE_HEIGHT * 0.12;
+    treadOuter.castShadow = true;
+    treadOuter.receiveShadow = true;
+    group.add(treadOuter);
+
+    // Rounded front & rear sprocket drums
+    const drumGeo = new THREE.CylinderGeometry(H * 0.44, H * 0.44, W * 0.94, 14);
+    drumGeo.rotateZ(Math.PI / 2);
+    const frontDrum = new THREE.Mesh(drumGeo, darkRubberMat);
+    frontDrum.position.set(0, -PLATE_HEIGHT * 0.12, D * 0.46);
+    const rearDrum = frontDrum.clone();
+    rearDrum.position.z = -D * 0.46;
+    group.add(frontDrum, rearDrum);
+
+    // 4 colored armored road-wheel rollers along the track side
+    const spinGroup = new THREE.Group();
+    spinGroup.name = 'wheel_spin';
+    const rollerGeo = new THREE.CylinderGeometry(H * 0.28, H * 0.28, W * 1.04, 12);
+    rollerGeo.rotateZ(Math.PI / 2);
+    for (let i = -1.5; i <= 1.5; i += 1) {
+      const roller = new THREE.Mesh(rollerGeo, mat);
+      roller.position.set(0, -PLATE_HEIGHT * 0.16, i * (D * 0.24));
+      spinGroup.add(roller);
+    }
+    group.add(spinGroup);
+
+    // Top armored fender skirt
+    const skirt = new THREE.Mesh(new THREE.BoxGeometry(W * 1.02, PLATE_HEIGHT * 0.75, D * 1.04), darkMetalMat);
+    skirt.position.y = H * 0.34;
+    skirt.castShadow = true;
+    group.add(skirt);
+    return group;
+  }
+
+  if (partId === 'saw_blade') {
+    // Mounting bracket + hydraulic arm
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(W * 0.94, H * 0.75, D * 0.45), mat);
+    mount.position.set(0, 0, -D * 0.25);
+    mount.castShadow = true;
+    group.add(mount);
+
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.22, H * 0.45, D * 0.65), darkMetalMat);
+    armL.position.set(-W * 0.26, 0, D * 0.12);
+    const armR = armL.clone();
+    armR.position.x = W * 0.26;
+    group.add(armL, armR);
+
+    // Giant Horizontal Spinning Buzzsaw Blade projecting forward (+Z)!
+    const sawGroup = new THREE.Group();
+    sawGroup.name = 'saw_spin';
+    sawGroup.position.set(0, -0.04, D * 0.55);
+
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(W * 0.46, W * 0.46, 0.1, 20),
+      brightChromeMat
+    );
+    disc.castShadow = true;
+    sawGroup.add(disc);
+
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.32, 0.2, 12),
+      getBrickMaterial('#d92626')
+    );
+    sawGroup.add(hub);
+
+    // 12 metallic saw teeth around perimeter
+    const toothGeo = new THREE.ConeGeometry(0.14, 0.32, 4);
+    toothGeo.rotateX(Math.PI / 2);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const tooth = new THREE.Mesh(toothGeo, brightChromeMat);
+      tooth.position.set(Math.sin(a) * (W * 0.47), 0, Math.cos(a) * (W * 0.47));
+      tooth.rotation.y = a + 0.35;
+      sawGroup.add(tooth);
+    }
+
+    group.add(sawGroup);
+    return group;
+  }
+
+  if (partId === 'turret_blaster') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(W * 0.92, H * 0.48, D * 0.72), darkMetalMat);
+    base.position.set(0, -H * 0.24, -D * 0.08);
+    base.castShadow = true;
+    const dome = new THREE.Mesh(new THREE.BoxGeometry(W * 0.84, H * 0.55, D * 0.62), mat);
+    dome.position.set(0, H * 0.18, -D * 0.12);
+    dome.castShadow = true;
+    group.add(base, dome);
+
+    // Twin heavy cannon barrels projecting forward (+Z)
+    const barrelGeo = new THREE.CylinderGeometry(0.13, 0.16, D * 0.92, 12);
+    barrelGeo.rotateX(Math.PI / 2);
+    const bL = new THREE.Mesh(barrelGeo, darkMetalMat);
+    bL.position.set(-W * 0.22, H * 0.2, D * 0.34);
+    bL.castShadow = true;
+    const bR = bL.clone();
+    bR.position.x = W * 0.22;
+
+    const muzzleGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.22, 10);
+    muzzleGeo.rotateX(Math.PI / 2);
+    const mL = new THREE.Mesh(muzzleGeo, brightChromeMat);
+    mL.position.set(-W * 0.22, H * 0.2, D * 0.78);
+    const mR = mL.clone();
+    mR.position.x = W * 0.22;
+
+    group.add(bL, bR, mL, mR);
+    return group;
+  }
+
+  if (partId === 'exhaust_pipes') {
+    const block = new THREE.Mesh(new THREE.BoxGeometry(W * 0.85, H * 0.46, D * 0.88), mat);
+    block.position.y = -H * 0.26;
+    block.castShadow = true;
+    group.add(block);
+
+    const pipeGeo = new THREE.CylinderGeometry(0.14, 0.15, H * 1.45, 12);
+    const p1 = new THREE.Mesh(pipeGeo, brightChromeMat);
+    p1.position.set(0, H * 0.35, -D * 0.22);
+    p1.rotation.x = -0.14;
+    p1.castShadow = true;
+    const p2 = p1.clone();
+    p2.position.z = D * 0.22;
+    group.add(p1, p2);
+    return group;
+  }
+
+  if (partId === 'roll_cage') {
+    const thick = 0.16;
+    const postGeo = new THREE.CylinderGeometry(thick * 0.55, thick * 0.55, H * 1.02, 10);
+    const pFL = new THREE.Mesh(postGeo, mat);
+    pFL.position.set(-W * 0.44, 0, D * 0.36);
+    pFL.rotation.x = -0.16;
+    const pFR = pFL.clone();
+    pFR.position.x = W * 0.44;
+    const pRL = new THREE.Mesh(postGeo, mat);
+    pRL.position.set(-W * 0.44, 0, -D * 0.36);
+    pRL.rotation.x = 0.16;
+    const pRR = pRL.clone();
+    pRR.position.x = W * 0.44;
+
+    const topBarGeo = new THREE.CylinderGeometry(thick * 0.55, thick * 0.55, W * 0.92, 10);
+    topBarGeo.rotateZ(Math.PI / 2);
+    const topF = new THREE.Mesh(topBarGeo, mat);
+    topF.position.set(0, H * 0.46, D * 0.28);
+    const topR = new THREE.Mesh(topBarGeo, mat);
+    topR.position.set(0, H * 0.46, -D * 0.28);
+
+    const sideBarGeo = new THREE.CylinderGeometry(thick * 0.5, thick * 0.5, D * 0.65, 10);
+    sideBarGeo.rotateX(Math.PI / 2);
+    const sL = new THREE.Mesh(sideBarGeo, darkMetalMat);
+    sL.position.set(-W * 0.44, H * 0.46, 0);
+    const sR = sL.clone();
+    sR.position.x = W * 0.44;
+
+    group.add(pFL, pFR, pRL, pRR, topF, topR, sL, sR);
+    return group;
+  }
+
+  if (partId === 'bull_horns') {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(W * 0.92, H * 0.72, D * 0.8), mat);
+    bar.castShadow = true;
+    group.add(bar);
+
+    // Sweeping chrome horns on left & right!
+    const hornGeo = new THREE.ConeGeometry(0.16, 1.05, 10);
+    const hL = new THREE.Mesh(hornGeo, brightChromeMat);
+    hL.position.set(-W * 0.52, H * 0.16, D * 0.48);
+    hL.rotation.set(0.75, 0, 0.72);
+    hL.castShadow = true;
+    const hR = new THREE.Mesh(hornGeo, brightChromeMat);
+    hR.position.set(W * 0.52, H * 0.16, D * 0.48);
+    hR.rotation.set(0.75, 0, -0.72);
+    hR.castShadow = true;
+    group.add(hL, hR);
+    return group;
+  }
+
   if (partId === 'armor_plate') {
     const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), mat);
     body.castShadow = true;

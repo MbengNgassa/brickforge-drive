@@ -40,6 +40,7 @@ export class GarageController {
   private snapBracketGroup = new THREE.Group();
   private bracketMatValid = new THREE.MeshBasicMaterial({ color: 0x22e56b, transparent: true, opacity: 0.92 });
   private bracketMatInvalid = new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.92 });
+  private bracketMatSelect = new THREE.MeshBasicMaterial({ color: 0x38e8ff, transparent: true, opacity: 0.95 });
   private hoverHighlight: THREE.LineSegments | null = null;
 
   private raycaster = new THREE.Raycaster();
@@ -48,6 +49,8 @@ export class GarageController {
   private isPointerDown = false;
   private lastCandidate: SnapCandidate | null = null;
   private hoveredBrickUid: string | null = null;
+  public selectedBrickUid: string | null = null;
+  private lastPlacedUid: string | null = null;
 
   public activePartId: BrickPartId = 'brick_2x4';
   public activeColor = '#d92626';
@@ -273,17 +276,172 @@ export class GarageController {
     if (this.ghostGroup) this.ghostGroup.visible = false;
     this.snapBracketGroup.visible = false;
     this.clearHoverHighlight();
-    if (tool === 'place') this.showAutoPreview();
+
+    if (tool === 'place') {
+      this.selectedBrickUid = null;
+      this.rebuildSnapBracketsForDims(
+        getRotatedDims(PARTS_MAP[this.activePartId], this.activeRot),
+        this.bracketMatValid
+      );
+      this.showAutoPreview();
+    } else if (tool === 'move') {
+      // Auto-select the last placed brick (or topmost brick) so user can nudge immediately!
+      const fallback =
+        this.bricks.find((b) => b.uid === this.lastPlacedUid) ||
+        [...this.bricks].sort((a, b) => b.gy - a.gy)[0] ||
+        null;
+      this.selectBrick(fallback ? fallback.uid : null, false);
+    } else {
+      this.selectedBrickUid = null;
+    }
+
     sound.playUiTick();
     this.onChange();
   }
 
+  public getSelectedBrick(): PlacedBrick | null {
+    if (!this.selectedBrickUid) return null;
+    return this.bricks.find((b) => b.uid === this.selectedBrickUid) || null;
+  }
+
+  public selectBrick(uid: string | null, notify = true): void {
+    this.selectedBrickUid = uid;
+    this.refreshSelectionVisual();
+    if (notify) this.onChange();
+  }
+
+  private refreshSelectionVisual(): void {
+    if (this.activeTool !== 'move') return;
+    const brick = this.getSelectedBrick();
+    if (!brick) {
+      this.snapBracketGroup.visible = false;
+      return;
+    }
+    const part = PARTS_MAP[brick.partId];
+    const dims = getRotatedDims(part, brick.rot);
+    const center = getBrickCenterWorld(brick);
+    this.rebuildSnapBracketsForDims(dims, this.bracketMatSelect);
+    this.snapBracketGroup.position.set(center.x, center.y, center.z);
+    this.snapBracketGroup.visible = true;
+  }
+
   public rotatePart(): void {
+    if (this.activeTool === 'move') {
+      const idx = this.bricks.findIndex((b) => b.uid === this.selectedBrickUid);
+      if (idx >= 0) {
+        const cur = this.bricks[idx];
+        const nextRot = ((cur.rot + 1) % 4) as 0 | 1 | 2 | 3;
+        if (this.isPlacementValid(cur.partId, cur.gx, cur.gy, cur.gz, nextRot, cur.uid)) {
+          this.pushUndo();
+          this.bricks[idx] = { ...cur, rot: nextRot };
+          this.rebuildAllMeshes();
+          this.refreshSelectionVisual();
+          sound.playBrickSnap();
+          this.onChange();
+        } else {
+          sound.playBrickRemove();
+        }
+      }
+      return;
+    }
+
     this.activeRot = ((this.activeRot + 1) % 4) as 0 | 1 | 2 | 3;
     this.rebuildGhostMesh();
-    if (this.activeTool === 'place') this.showAutoPreview();
+    if (this.activeTool === 'place') {
+      if (this.lastCandidate) {
+        const valid = this.isPlacementValid(
+          this.activePartId,
+          this.lastCandidate.gx,
+          this.lastCandidate.gy,
+          this.lastCandidate.gz,
+          this.activeRot
+        );
+        this.applyCandidatePreview(this.lastCandidate.gx, this.lastCandidate.gy, this.lastCandidate.gz, valid);
+      } else {
+        this.showAutoPreview();
+      }
+    }
     sound.playUiTick();
     this.onChange();
+  }
+
+  public deleteSelected(): void {
+    if (this.activeTool !== 'move' || !this.selectedBrickUid || this.bricks.length <= 1) return;
+    this.pushUndo();
+    this.bricks = this.bricks.filter((b) => b.uid !== this.selectedBrickUid);
+    this.selectedBrickUid = null;
+    this.snapBracketGroup.visible = false;
+    this.rebuildAllMeshes();
+    sound.playBrickRemove();
+    this.onChange();
+  }
+
+  /**
+   * Moves either the active ghost preview (in Build mode) OR the selected placed brick
+   * (in Move mode) along screen-relative horizontal axes (left/right/forward/back)
+   * or vertically by 1 plate! Pressing ► ALWAYS moves right on your screen.
+   */
+  public nudge(screenRight: number, screenForward: number, dyPlates: number): void {
+    if (!this.active) return;
+
+    // Derive camera-aligned horizontal stud axes so controls match screen perspective!
+    const camDir = new THREE.Vector3();
+    this.engine.camera.getWorldDirection(camDir);
+    camDir.y = 0;
+    if (camDir.lengthSq() < 0.001) camDir.set(0, 0, -1);
+    camDir.normalize();
+
+    let fwdX = 0, fwdZ = 0;
+    if (Math.abs(camDir.x) >= Math.abs(camDir.z)) {
+      fwdX = Math.sign(camDir.x);
+    } else {
+      fwdZ = Math.sign(camDir.z);
+    }
+    // Right vector in Three.js XZ plane: forward × up = (-fwdZ, 0, fwdX)
+    const rightX = -fwdZ;
+    const rightZ = fwdX;
+
+    const dgx = screenRight * rightX + screenForward * fwdX;
+    const dgz = screenRight * rightZ + screenForward * fwdZ;
+
+    if (this.activeTool === 'place') {
+      if (!this.lastCandidate) {
+        this.showAutoPreview();
+      }
+      if (!this.lastCandidate) return;
+      const part = PARTS_MAP[this.activePartId];
+      const dims = getRotatedDims(part, this.activeRot);
+      const nx = THREE.MathUtils.clamp(this.lastCandidate.gx + dgx, -8, 8 - dims.w);
+      const ny = THREE.MathUtils.clamp(this.lastCandidate.gy + dyPlates, -2, 18 - dims.h);
+      const nz = THREE.MathUtils.clamp(this.lastCandidate.gz + dgz, -10, 12 - dims.d);
+      const valid = this.isPlacementValid(this.activePartId, nx, ny, nz, this.activeRot);
+      this.applyCandidatePreview(nx, ny, nz, valid);
+      sound.playUiTick();
+      if (navigator.vibrate) navigator.vibrate(8);
+      return;
+    }
+
+    if (this.activeTool === 'move') {
+      const idx = this.bricks.findIndex((b) => b.uid === this.selectedBrickUid);
+      if (idx < 0) return;
+      const cur = this.bricks[idx];
+      const nx = cur.gx + dgx;
+      const ny = cur.gy + dyPlates;
+      const nz = cur.gz + dgz;
+
+      if (this.isPlacementValid(cur.partId, nx, ny, nz, cur.rot, cur.uid)) {
+        this.pushUndo();
+        this.bricks[idx] = { ...cur, gx: nx, gy: ny, gz: nz };
+        this.rebuildAllMeshes();
+        this.refreshSelectionVisual();
+        sound.playBrickSnap();
+        if (navigator.vibrate) navigator.vibrate(10);
+        this.onChange();
+      } else {
+        // Subtle bump feedback if blocked by another brick
+        sound.playUiTick();
+      }
+    }
   }
 
   public toggleMirror(): boolean {
@@ -350,8 +508,16 @@ export class GarageController {
       this.showAutoPreview();
     }
     if (!this.lastCandidate || !this.lastCandidate.valid) return false;
-    this.commitCandidate(this.lastCandidate);
-    this.showAutoPreview();
+    const prev = { ...this.lastCandidate };
+    this.commitCandidate(prev);
+    // Advance preview 1 layer upward so rapid stacking is effortless, or fallback to auto spot
+    const part = PARTS_MAP[this.activePartId];
+    const nextGy = prev.gy + part.h;
+    if (this.isPlacementValid(this.activePartId, prev.gx, nextGy, prev.gz, this.activeRot)) {
+      this.applyCandidatePreview(prev.gx, nextGy, prev.gz, true);
+    } else {
+      this.showAutoPreview();
+    }
     return true;
   }
 
@@ -467,16 +633,20 @@ export class GarageController {
    * Iconic green 3D corner snap-target brackets (matching Screenshot 1!)
    */
   private rebuildSnapBrackets(): void {
+    const part = PARTS_MAP[this.activePartId];
+    const dims = getRotatedDims(part, this.activeRot);
+    this.rebuildSnapBracketsForDims(dims, this.bracketMatValid);
+  }
+
+  private rebuildSnapBracketsForDims(dims: { w: number; h: number; d: number }, mat: THREE.Material): void {
     while (this.snapBracketGroup.children.length > 0) {
       this.snapBracketGroup.remove(this.snapBracketGroup.children[0]);
     }
-    const part = PARTS_MAP[this.activePartId];
-    const dims = getRotatedDims(part, this.activeRot);
-    const W = dims.w * STUD_SIZE + 0.14;
-    const H = dims.h * PLATE_HEIGHT + 0.12;
-    const D = dims.d * STUD_SIZE + 0.14;
-    const cornerLen = Math.min(0.42, W * 0.34, D * 0.34);
-    const thick = 0.055;
+    const W = dims.w * STUD_SIZE + 0.16;
+    const H = dims.h * PLATE_HEIGHT + 0.14;
+    const D = dims.d * STUD_SIZE + 0.16;
+    const cornerLen = Math.min(0.44, W * 0.34, D * 0.34);
+    const thick = 0.06;
 
     const signs = [-1, 1];
     for (const sx of signs) {
@@ -486,11 +656,11 @@ export class GarageController {
           const cy = sy * (H / 2);
           const cz = sz * (D / 2);
 
-          const barX = new THREE.Mesh(new THREE.BoxGeometry(cornerLen, thick, thick), this.bracketMatValid);
+          const barX = new THREE.Mesh(new THREE.BoxGeometry(cornerLen, thick, thick), mat);
           barX.position.set(cx - sx * (cornerLen / 2), cy, cz);
-          const barY = new THREE.Mesh(new THREE.BoxGeometry(thick, Math.min(cornerLen, H * 0.45), thick), this.bracketMatValid);
+          const barY = new THREE.Mesh(new THREE.BoxGeometry(thick, Math.min(cornerLen, H * 0.45), thick), mat);
           barY.position.set(cx, cy - sy * (Math.min(cornerLen, H * 0.45) / 2), cz);
-          const barZ = new THREE.Mesh(new THREE.BoxGeometry(thick, thick, cornerLen), this.bracketMatValid);
+          const barZ = new THREE.Mesh(new THREE.BoxGeometry(thick, thick, cornerLen), mat);
           barZ.position.set(cx, cy, cz - sz * (cornerLen / 2));
 
           this.snapBracketGroup.add(barX, barY, barZ);
@@ -536,8 +706,15 @@ export class GarageController {
     this.engine.scene.add(lines);
   }
 
-  private isPlacementValid(partId: BrickPartId, gx: number, gy: number, gz: number, rot: 0 | 1 | 2 | 3): boolean {
-    if (this.bricks.length >= MAX_BRICKS) return false;
+  private isPlacementValid(
+    partId: BrickPartId,
+    gx: number,
+    gy: number,
+    gz: number,
+    rot: 0 | 1 | 2 | 3,
+    ignoreUid?: string
+  ): boolean {
+    if (!ignoreUid && this.bricks.length >= MAX_BRICKS) return false;
     const part = PARTS_MAP[partId];
     const dims = getRotatedDims(part, rot);
     // Keep within reasonable build volume
@@ -547,7 +724,8 @@ export class GarageController {
     for (let x = 0; x < dims.w; x++) {
       for (let y = 0; y < dims.h; y++) {
         for (let z = 0; z < dims.d; z++) {
-          if (this.occupied.has(`${gx + x},${gy + y},${gz + z}`)) {
+          const occ = this.occupied.get(`${gx + x},${gy + y},${gz + z}`);
+          if (occ && occ !== ignoreUid) {
             return false;
           }
         }
@@ -564,15 +742,19 @@ export class GarageController {
 
     const brickHits = this.raycaster.intersectObjects(this.vehicleGroup.children, true);
 
-    if (this.activeTool === 'erase' || this.activeTool === 'paint') {
+    if (this.activeTool === 'erase' || this.activeTool === 'paint' || this.activeTool === 'move') {
       if (this.ghostGroup) this.ghostGroup.visible = false;
-      this.snapBracketGroup.visible = false;
+      if (this.activeTool !== 'move') {
+        this.snapBracketGroup.visible = false;
+      }
       this.lastCandidate = null;
       if (brickHits.length > 0) {
         const uid = brickHits[0].object.userData.brickUid as string | undefined;
         const brick = this.bricks.find((b) => b.uid === uid);
         if (brick) {
-          this.showBrickHighlight(brick, this.activeTool === 'erase' ? 0xff3b3b : 0x38bdf8);
+          const highlightColor =
+            this.activeTool === 'erase' ? 0xff3b3b : this.activeTool === 'move' ? 0x38e8ff : 0xf4be17;
+          this.showBrickHighlight(brick, highlightColor);
           return;
         }
       }
@@ -676,6 +858,37 @@ export class GarageController {
       return;
     }
 
+    if (this.activeTool === 'move') {
+      if (this.hoveredBrickUid) {
+        this.selectBrick(this.hoveredBrickUid, true);
+        sound.playUiTick();
+        if (navigator.vibrate) navigator.vibrate(10);
+        return;
+      }
+      // If tapping open floor while a brick is selected, relocate it straight there!
+      const selIdx = this.bricks.findIndex((b) => b.uid === this.selectedBrickUid);
+      if (selIdx >= 0) {
+        const cur = this.bricks[selIdx];
+        const part = PARTS_MAP[cur.partId];
+        const dims = getRotatedDims(part, cur.rot);
+        const planeHits = this.raycaster.intersectObject(this.buildPlane);
+        if (planeHits.length > 0) {
+          const pt = planeHits[0].point;
+          const nx = Math.round(pt.x / STUD_SIZE - dims.w / 2);
+          const nz = Math.round(pt.z / STUD_SIZE - dims.d / 2);
+          if (this.isPlacementValid(cur.partId, nx, cur.gy, nz, cur.rot, cur.uid)) {
+            this.pushUndo();
+            this.bricks[selIdx] = { ...cur, gx: nx, gz: nz };
+            this.rebuildAllMeshes();
+            this.refreshSelectionVisual();
+            sound.playBrickSnap();
+            this.onChange();
+          }
+        }
+      }
+      return;
+    }
+
     if (this.activeTool === 'paint') {
       if (this.hoveredBrickUid) {
         const idx = this.bricks.findIndex((b) => b.uid === this.hoveredBrickUid);
@@ -711,6 +924,7 @@ export class GarageController {
       color: this.activeColor,
     };
     this.bricks.push(placed);
+    this.lastPlacedUid = placed.uid;
     this.addBrickVisual(placed, true);
 
     // Optional X-axis symmetry mirror placement!
@@ -761,7 +975,7 @@ export class GarageController {
     const dt = performance.now() - this.pointerDownPos.time;
     const dist = Math.hypot(dx, dy);
 
-    // Quick tap or click without dragging -> place / paint / erase!
+    // Quick tap or click without dragging -> place / move / paint / erase!
     if (dist < 12 && dt < 420) {
       this.performClickAction(e.clientX, e.clientY, e.button === 2);
     }
@@ -792,11 +1006,40 @@ export class GarageController {
     } else if (e.key === '1') {
       this.setTool('place');
     } else if (e.key === '2') {
+      this.setTool('move');
+    } else if (e.key === '3') {
       this.setTool('paint');
-    } else if (e.key === '3' || e.key === 'Delete' || e.key === 'Backspace') {
+    } else if (e.key === '4') {
       this.setTool('erase');
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (this.activeTool === 'move' && this.selectedBrickUid) {
+        this.deleteSelected();
+      } else {
+        this.setTool('erase');
+      }
     } else if (e.key === 'm' || e.key === 'M') {
       this.toggleMirror();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      this.nudge(-1, 0, 0);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      this.nudge(1, 0, 0);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.nudge(0, 1, 0);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.nudge(0, -1, 0);
+    } else if (e.key === 'e' || e.key === 'E' || e.key === 'PageUp') {
+      e.preventDefault();
+      this.nudge(0, 0, 1);
+    } else if (e.key === 'q' || e.key === 'Q' || e.key === 'PageDown') {
+      e.preventDefault();
+      this.nudge(0, 0, -1);
+    } else if (e.key === 'Enter' && this.activeTool === 'place') {
+      e.preventDefault();
+      this.placeCurrentPreview();
     }
   };
 

@@ -27,7 +27,13 @@ export type BrickPartId =
   | 'thruster_jet'
   | 'bumper_ram'
   | 'spike_plow'
-  | 'armor_plate';
+  | 'armor_plate'
+  | 'turret_blaster'
+  | 'exhaust_pipes'
+  | 'roll_cage'
+  | 'saw_blade'
+  | 'bull_horns'
+  | 'tank_tread';
 
 export interface BrickPartDef {
   id: BrickPartId;
@@ -108,7 +114,7 @@ export interface ColorDef {
 
 export type GameMode = 'garage' | 'race' | 'derby' | 'freeroam';
 
-export type BuilderTool = 'place' | 'paint' | 'erase';
+export type BuilderTool = 'place' | 'move' | 'paint' | 'erase';
 
 export type GraphicsQuality = 'ultra' | 'high' | 'balanced';
 

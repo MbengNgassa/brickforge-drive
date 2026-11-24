@@ -1,0 +1,617 @@
+import type {
+  BrickCategory,
+  BrickPartDef,
+  BrickPartId,
+  ColorDef,
+  PlacedBrick,
+  VehicleStats,
+} from './types';
+
+export const STUD_SIZE = 0.8;
+export const PLATE_HEIGHT = 0.32;
+export const MAX_BRICKS = 250;
+
+export const CATEGORIES: { id: BrickCategory; label: string }[] = [
+  { id: 'chassis', label: 'Chassis' },
+  { id: 'bricks', label: 'Body & Slopes' },
+  { id: 'cab', label: 'Cab & Aero' },
+  { id: 'wheels', label: 'Wheels' },
+  { id: 'power', label: 'Boost & Derby' },
+];
+
+export const COLORS: ColorDef[] = [
+  { id: 'red', name: 'Racing Red', hex: '#d92626' },
+  { id: 'blue', name: 'Cobalt Blue', hex: '#1d5fd6' },
+  { id: 'yellow', name: 'Signal Yellow', hex: '#f4be17' },
+  { id: 'tan', name: 'Desert Tan', hex: '#b6895b' },
+  { id: 'teal', name: 'Classic Teal', hex: '#168f8b' },
+  { id: 'orange', name: 'Sunset Orange', hex: '#ee6a18' },
+  { id: 'lime', name: 'Acid Lime', hex: '#6ec41d' },
+  { id: 'green', name: 'Forest Green', hex: '#1d7a42' },
+  { id: 'white', name: 'Pure White', hex: '#f0f3f7' },
+  { id: 'lightgray', name: 'Light Stone', hex: '#aeb6c2' },
+  { id: 'darkgray', name: 'Gunmetal', hex: '#4b5361' },
+  { id: 'black', name: 'Obsidian Black', hex: '#1d2128' },
+  { id: 'chrome', name: 'Chrome Silver', hex: '#d4dde8', metallic: true },
+  { id: 'gold', name: 'Trophy Gold', hex: '#e3b23c', metallic: true },
+  { id: 'transblue', name: 'Trans-Ice Glass', hex: '#55ccff', translucent: true },
+  { id: 'transred', name: 'Trans-Ruby', hex: '#ff3344', translucent: true },
+];
+
+export const PARTS: BrickPartDef[] = [
+  // CHASSIS
+  {
+    id: 'plate_4x6',
+    name: '4×6 Chassis Baseplate',
+    shortName: 'Base 4×6',
+    category: 'chassis',
+    w: 4,
+    h: 1,
+    d: 6,
+    mass: 3.2,
+    hp: 36,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 2,
+    ramBonus: 1,
+    armorBonus: 4,
+    hasStudsTop: true,
+  },
+  {
+    id: 'plate_2x6',
+    name: '2×6 Long Plate',
+    shortName: 'Plate 2×6',
+    category: 'chassis',
+    w: 2,
+    h: 1,
+    d: 6,
+    mass: 1.6,
+    hp: 20,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 1,
+    ramBonus: 0,
+    armorBonus: 2,
+    hasStudsTop: true,
+  },
+  {
+    id: 'plate_2x4',
+    name: '2×4 Plate',
+    shortName: 'Plate 2×4',
+    category: 'chassis',
+    w: 2,
+    h: 1,
+    d: 4,
+    mass: 1.1,
+    hp: 15,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0.5,
+    ramBonus: 0,
+    armorBonus: 1.5,
+    hasStudsTop: true,
+  },
+  {
+    id: 'plate_2x2',
+    name: '2×2 Plate',
+    shortName: 'Plate 2×2',
+    category: 'chassis',
+    w: 2,
+    h: 1,
+    d: 2,
+    mass: 0.6,
+    hp: 10,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0,
+    armorBonus: 1,
+    hasStudsTop: true,
+  },
+  {
+    id: 'plate_1x4',
+    name: '1×4 Strip Plate',
+    shortName: 'Strip 1×4',
+    category: 'chassis',
+    w: 4,
+    h: 1,
+    d: 1,
+    mass: 0.6,
+    hp: 10,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0.5,
+    armorBonus: 1,
+    hasStudsTop: true,
+  },
+  {
+    id: 'tile_2x2',
+    name: '2×2 Smooth Tile',
+    shortName: 'Tile 2×2',
+    category: 'chassis',
+    w: 2,
+    h: 1,
+    d: 2,
+    mass: 0.5,
+    hp: 10,
+    topSpeedBonus: 0.5,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0,
+    armorBonus: 1,
+    hasStudsTop: false,
+  },
+
+  // BODY & SLOPES
+  {
+    id: 'brick_2x4',
+    name: '2×4 Standard Brick',
+    shortName: 'Brick 2×4',
+    category: 'bricks',
+    w: 2,
+    h: 3,
+    d: 4,
+    mass: 2.0,
+    hp: 22,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 1,
+    armorBonus: 3,
+    hasStudsTop: true,
+  },
+  {
+    id: 'brick_2x2',
+    name: '2×2 Standard Brick',
+    shortName: 'Brick 2×2',
+    category: 'bricks',
+    w: 2,
+    h: 3,
+    d: 2,
+    mass: 1.1,
+    hp: 16,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0.5,
+    armorBonus: 2,
+    hasStudsTop: true,
+  },
+  {
+    id: 'brick_1x4',
+    name: '1×4 Wall Brick',
+    shortName: 'Wall 1×4',
+    category: 'bricks',
+    w: 4,
+    h: 3,
+    d: 1,
+    mass: 1.1,
+    hp: 16,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0.5,
+    armorBonus: 2,
+    hasStudsTop: true,
+  },
+  {
+    id: 'brick_1x2',
+    name: '1×2 Brick',
+    shortName: 'Brick 1×2',
+    category: 'bricks',
+    w: 2,
+    h: 3,
+    d: 1,
+    mass: 0.6,
+    hp: 12,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0,
+    armorBonus: 1.5,
+    hasStudsTop: true,
+  },
+  {
+    id: 'brick_1x1',
+    name: '1×1 Pillar Brick',
+    shortName: 'Pillar 1×1',
+    category: 'bricks',
+    w: 1,
+    h: 3,
+    d: 1,
+    mass: 0.35,
+    hp: 9,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0,
+    armorBonus: 1,
+    hasStudsTop: true,
+  },
+  {
+    id: 'slope_2x2',
+    name: '2×2 Hood Slope',
+    shortName: 'Slope 2×2',
+    category: 'bricks',
+    w: 2,
+    h: 3,
+    d: 2,
+    mass: 0.9,
+    hp: 14,
+    topSpeedBonus: 1.2,
+    boostBonus: 0,
+    gripBonus: 0.5,
+    ramBonus: 1,
+    armorBonus: 1.5,
+    hasStudsTop: false,
+  },
+  {
+    id: 'slope_2x3',
+    name: '2×3 Aero Wedge',
+    shortName: 'Wedge 2×3',
+    category: 'bricks',
+    w: 2,
+    h: 3,
+    d: 3,
+    mass: 1.1,
+    hp: 16,
+    topSpeedBonus: 2.0,
+    boostBonus: 0,
+    gripBonus: 1.0,
+    ramBonus: 2,
+    armorBonus: 1.5,
+    hasStudsTop: false,
+  },
+  {
+    id: 'fender_1x4',
+    name: '1×4 Wheel Fender',
+    shortName: 'Fender 1×4',
+    category: 'bricks',
+    w: 1,
+    h: 3,
+    d: 4,
+    mass: 0.9,
+    hp: 18,
+    topSpeedBonus: 0.5,
+    boostBonus: 0,
+    gripBonus: 1.0,
+    ramBonus: 1,
+    armorBonus: 2.5,
+    hasStudsTop: true,
+  },
+
+  // CAB & AERO
+  {
+    id: 'windshield_2x4',
+    name: '4×2 Sloped Windshield',
+    shortName: 'Windshield',
+    category: 'cab',
+    w: 4,
+    h: 4,
+    d: 2,
+    mass: 1.0,
+    hp: 18,
+    topSpeedBonus: 1.5,
+    boostBonus: 0,
+    gripBonus: 0.5,
+    ramBonus: 0,
+    armorBonus: 1.5,
+    isTranslucent: true,
+    hasStudsTop: false,
+  },
+  {
+    id: 'seat_2x2',
+    name: '2×2 Driver Seat',
+    shortName: 'Seat',
+    category: 'cab',
+    w: 2,
+    h: 3,
+    d: 2,
+    mass: 0.8,
+    hp: 16,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 1.5,
+    ramBonus: 0,
+    armorBonus: 1,
+    hasStudsTop: false,
+  },
+  {
+    id: 'steering_1x2',
+    name: '2×1 Steering Console',
+    shortName: 'Steering',
+    category: 'cab',
+    w: 2,
+    h: 3,
+    d: 1,
+    mass: 0.5,
+    hp: 14,
+    topSpeedBonus: 0,
+    boostBonus: 0,
+    gripBonus: 4.0,
+    ramBonus: 0,
+    armorBonus: 0.5,
+    hasStudsTop: false,
+  },
+  {
+    id: 'headlight_1x2',
+    name: '2×1 LED Headlights',
+    shortName: 'Headlights',
+    category: 'cab',
+    w: 2,
+    h: 2,
+    d: 1,
+    mass: 0.4,
+    hp: 10,
+    topSpeedBonus: 0.5,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0,
+    armorBonus: 0.5,
+    hasStudsTop: true,
+  },
+  {
+    id: 'taillight_1x2',
+    name: '2×1 Brake Lights',
+    shortName: 'Taillights',
+    category: 'cab',
+    w: 2,
+    h: 2,
+    d: 1,
+    mass: 0.4,
+    hp: 10,
+    topSpeedBonus: 0.5,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 0,
+    armorBonus: 0.5,
+    hasStudsTop: true,
+  },
+  {
+    id: 'spoiler_1x4',
+    name: '4×1 Aero Wing Spoiler',
+    shortName: 'Spoiler',
+    category: 'cab',
+    w: 4,
+    h: 3,
+    d: 1,
+    mass: 0.7,
+    hp: 14,
+    topSpeedBonus: 2.5,
+    boostBonus: 1.0,
+    gripBonus: 7.5,
+    ramBonus: 0,
+    armorBonus: 0.5,
+    hasStudsTop: false,
+  },
+
+  // WHEELS
+  {
+    id: 'wheel_street',
+    name: 'Street Sport Wheel',
+    shortName: 'Street Wheel',
+    category: 'wheels',
+    w: 2,
+    h: 3,
+    d: 2,
+    mass: 1.4,
+    hp: 34,
+    topSpeedBonus: 5.5,
+    boostBonus: 1,
+    gripBonus: 6.5,
+    ramBonus: 0.5,
+    armorBonus: 2,
+    isWheel: true,
+    wheelRadius: 0.76,
+    hasStudsTop: false,
+  },
+  {
+    id: 'wheel_offroad',
+    name: 'Chunky Off-Road Wheel',
+    shortName: 'Off-Road',
+    category: 'wheels',
+    w: 2,
+    h: 3,
+    d: 2,
+    mass: 1.8,
+    hp: 44,
+    topSpeedBonus: 4.2,
+    boostBonus: 1,
+    gripBonus: 7.5,
+    ramBonus: 1.5,
+    armorBonus: 3.5,
+    isWheel: true,
+    wheelRadius: 0.9,
+    hasStudsTop: false,
+  },
+  {
+    id: 'wheel_monster',
+    name: 'Monster Crusher Wheel',
+    shortName: 'Monster',
+    category: 'wheels',
+    w: 2,
+    h: 4,
+    d: 3,
+    mass: 2.8,
+    hp: 60,
+    topSpeedBonus: 3.2,
+    boostBonus: 1,
+    gripBonus: 6.0,
+    ramBonus: 4.5,
+    armorBonus: 6,
+    isWheel: true,
+    wheelRadius: 1.15,
+    hasStudsTop: false,
+  },
+
+  // BOOST & DERBY POWER
+  {
+    id: 'thruster_jet',
+    name: 'Plasma Jet Thruster',
+    shortName: 'Jet Booster',
+    category: 'power',
+    w: 2,
+    h: 2,
+    d: 2,
+    mass: 1.3,
+    hp: 20,
+    topSpeedBonus: 8.5,
+    boostBonus: 14,
+    gripBonus: -0.5,
+    ramBonus: 1,
+    armorBonus: 1,
+    isThruster: true,
+    hasStudsTop: false,
+  },
+  {
+    id: 'bumper_ram',
+    name: 'Heavy Steel Ram Bumper',
+    shortName: 'Ram Bumper',
+    category: 'power',
+    w: 4,
+    h: 2,
+    d: 1,
+    mass: 2.2,
+    hp: 48,
+    topSpeedBonus: -0.5,
+    boostBonus: 0,
+    gripBonus: 0.5,
+    ramBonus: 11,
+    armorBonus: 8,
+    hasStudsTop: true,
+  },
+  {
+    id: 'spike_plow',
+    name: 'Demolition Spike Plow',
+    shortName: 'Spike Plow',
+    category: 'power',
+    w: 4,
+    h: 3,
+    d: 2,
+    mass: 3.4,
+    hp: 65,
+    topSpeedBonus: -1.0,
+    boostBonus: 0,
+    gripBonus: 0.5,
+    ramBonus: 20,
+    armorBonus: 12,
+    hasStudsTop: false,
+  },
+  {
+    id: 'armor_plate',
+    name: 'Titanium Armor Block',
+    shortName: 'Armor 2×2',
+    category: 'power',
+    w: 2,
+    h: 3,
+    d: 2,
+    mass: 2.4,
+    hp: 58,
+    topSpeedBonus: -0.5,
+    boostBonus: 0,
+    gripBonus: 0,
+    ramBonus: 4,
+    armorBonus: 14,
+    hasStudsTop: true,
+  },
+];
+
+export const PARTS_MAP: Record<BrickPartId, BrickPartDef> = PARTS.reduce(
+  (acc, part) => {
+    acc[part.id] = part;
+    return acc;
+  },
+  {} as Record<BrickPartId, BrickPartDef>
+);
+
+export function getRotatedDims(part: BrickPartDef, rot: 0 | 1 | 2 | 3): { w: number; h: number; d: number } {
+  if (rot % 2 === 1) {
+    return { w: part.d, h: part.h, d: part.w };
+  }
+  return { w: part.w, h: part.h, d: part.d };
+}
+
+export function getBrickCenterWorld(brick: PlacedBrick): { x: number; y: number; z: number } {
+  const part = PARTS_MAP[brick.partId];
+  const dims = getRotatedDims(part, brick.rot);
+  return {
+    x: (brick.gx + dims.w / 2) * STUD_SIZE,
+    y: (brick.gy + dims.h / 2) * PLATE_HEIGHT,
+    z: (brick.gz + dims.d / 2) * STUD_SIZE,
+  };
+}
+
+export function getOccupiedKeys(brick: PlacedBrick): string[] {
+  const part = PARTS_MAP[brick.partId];
+  const dims = getRotatedDims(part, brick.rot);
+  const keys: string[] = [];
+  for (let x = 0; x < dims.w; x++) {
+    for (let y = 0; y < dims.h; y++) {
+      for (let z = 0; z < dims.d; z++) {
+        keys.push(`${brick.gx + x},${brick.gy + y},${brick.gz + z}`);
+      }
+    }
+  }
+  return keys;
+}
+
+export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
+  let mass = 0;
+  let wheelCount = 0;
+  let thrusterCount = 0;
+  let topSpeedRaw = 36;
+  let boostRaw = 24;
+  let gripRaw = 35;
+  let ramRaw = 15;
+  let armorRaw = 20;
+  let totalBrickHp = 0;
+
+  for (const b of bricks) {
+    const p = PARTS_MAP[b.partId];
+    if (!p) continue;
+    mass += p.mass;
+    totalBrickHp += p.hp;
+    if (p.isWheel) wheelCount++;
+    if (p.isThruster) thrusterCount++;
+    topSpeedRaw += p.topSpeedBonus;
+    boostRaw += p.boostBonus;
+    gripRaw += p.gripBonus;
+    ramRaw += p.ramBonus;
+    armorRaw += p.armorBonus;
+  }
+
+  const effectiveMass = Math.max(8, mass);
+  const weightPenalty = Math.max(0, (effectiveMass - 28) * 0.42);
+  const wheelFactor = wheelCount >= 4 ? 1.0 : wheelCount >= 2 ? 0.82 : 0.55;
+
+  const topSpeed = Math.round(Math.min(100, Math.max(18, (topSpeedRaw - weightPenalty * 0.65) * wheelFactor)));
+  const acceleration = Math.round(
+    Math.min(100, Math.max(20, (46 + thrusterCount * 13 + Math.min(wheelCount, 6) * 4 - weightPenalty * 0.9) * wheelFactor))
+  );
+  const handling = Math.round(
+    Math.min(100, Math.max(22, (gripRaw - weightPenalty * 0.4) * (wheelCount >= 4 ? 1.0 : 0.72)))
+  );
+  const armor = Math.round(Math.min(100, Math.max(15, armorRaw * 0.9 + effectiveMass * 0.55)));
+  const ramPower = Math.round(Math.min(100, Math.max(15, ramRaw * 1.45 + effectiveMass * 0.65)));
+
+  return {
+    brickCount: bricks.length,
+    maxBricks: MAX_BRICKS,
+    mass: Math.round(effectiveMass * 10) / 10,
+    wheelCount,
+    thrusterCount,
+    topSpeed,
+    acceleration,
+    handling,
+    armor,
+    ramPower,
+    physMaxSpeed: 32 + (topSpeed / 100) * 28, // 32..60 units/sec
+    physAccel: 22 + (acceleration / 100) * 26,
+    physTurnRate: 1.7 + (handling / 100) * 1.35,
+    physGrip: 4.0 + (handling / 100) * 6.5,
+    physMaxHp: Math.max(120, Math.round(90 + totalBrickHp * 0.48 + armor * 2.2)),
+    physRamMultiplier: 0.85 + (ramPower / 100) * 1.45,
+    physBoostPower: 16 + Math.min(boostRaw, 85) * 0.32,
+  };
+}

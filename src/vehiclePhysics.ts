@@ -78,6 +78,7 @@ export class DebrisSystem {
   public spawnDetachedBrick(brick: PlacedBrick, worldPos: THREE.Vector3, worldQuat: THREE.Quaternion, velocity: THREE.Vector3): void {
     this.trimIfFull();
     const mesh = createBrickMesh(brick.partId, brick.color);
+    mesh.scale.setScalar(1.28);
     mesh.position.copy(worldPos);
     mesh.quaternion.copy(worldQuat);
     this.scene.add(mesh);
@@ -301,9 +302,11 @@ export class DriveVehicle {
     const cx = (minX + maxX) / 2;
     const cz = (minZ + maxZ) / 2;
     const liftY = -minBottomY + 0.04;
-    this.radius = Math.min(4.2, Math.max(2.1, Math.max(maxX - minX, maxZ - minZ) * 0.42));
-    this.frontZ = Math.max(1.8, maxZ - cz);
-    this.roofY = Math.max(2.0, maxTopY + liftY);
+    const DRIVE_SCALE = 1.28;
+    this.bodyTilt.scale.setScalar(DRIVE_SCALE);
+    this.radius = Math.min(5.2, Math.max(2.7, Math.max(maxX - minX, maxZ - minZ) * 0.42 * DRIVE_SCALE));
+    this.frontZ = Math.max(2.3, (maxZ - cz) * DRIVE_SCALE);
+    this.roofY = Math.max(2.6, (maxTopY + liftY) * DRIVE_SCALE);
 
     blueprint.bricks.forEach((brickData, i) => {
       const part = PARTS_MAP[brickData.partId];
@@ -458,45 +461,46 @@ export class DriveVehicle {
     }
 
     const maxSpd = this.stats.physMaxSpeed + (this.isBoosting ? this.stats.physBoostPower : 0);
-    const accel = this.stats.physAccel + (this.isBoosting ? 24 : 0);
+    const accel = this.stats.physAccel + (this.isBoosting ? 12 : 0);
 
     if (canDrive) {
       if (input.throttle > 0.05) {
         fwdSpeed += input.throttle * accel * dt;
       } else if (input.throttle < -0.05) {
         if (fwdSpeed > 2) {
-          // Braking
-          fwdSpeed += input.throttle * accel * 1.65 * dt;
+          // Strong responsive braking
+          fwdSpeed += input.throttle * accel * 2.0 * dt;
         } else {
           // Reverse
-          fwdSpeed += input.throttle * accel * 0.72 * dt;
+          fwdSpeed += input.throttle * accel * 0.78 * dt;
         }
       } else {
-        // Natural rolling resistance
-        fwdSpeed *= Math.max(0, 1 - dt * 1.15);
+        // Natural rolling resistance so releasing gas settles speed smoothly
+        fwdSpeed *= Math.max(0, 1 - dt * 1.65);
       }
 
       if (this.isBoosting && fwdSpeed < maxSpd) {
-        fwdSpeed += 26 * dt;
+        fwdSpeed += 12 * dt;
       }
 
       // Speed caps
-      if (fwdSpeed > maxSpd) fwdSpeed = THREE.MathUtils.lerp(fwdSpeed, maxSpd, dt * 4.5);
-      if (fwdSpeed < -18) fwdSpeed = -18;
+      if (fwdSpeed > maxSpd) fwdSpeed = THREE.MathUtils.lerp(fwdSpeed, maxSpd, dt * 5.2);
+      if (fwdSpeed < -16) fwdSpeed = -16;
 
-      // Steering with drift dynamics
-      const speedFactor = Math.min(1, Math.abs(fwdSpeed) / 7.5);
+      // Steering with responsive low-speed agility and high-speed stability
+      const speedFactor = Math.min(1, Math.abs(fwdSpeed) / 4.8);
+      const highSpeedDamp = 1 - Math.min(0.28, Math.max(0, (Math.abs(fwdSpeed) - 32) * 0.012));
       const steerDir = fwdSpeed >= -0.5 ? 1 : -1;
-      const drifting = input.handbrake && Math.abs(fwdSpeed) > 14 && Math.abs(input.steer) > 0.15;
+      const drifting = input.handbrake && Math.abs(fwdSpeed) > 12 && Math.abs(input.steer) > 0.15;
       this.isDrifting = drifting;
 
-      const turnMult = drifting ? 1.38 : 1.0;
+      const turnMult = (drifting ? 1.32 : 1.0) * highSpeedDamp;
       const targetYaw = input.steer * this.stats.physTurnRate * turnMult * speedFactor * steerDir;
-      this.yawRate = THREE.MathUtils.lerp(this.yawRate, targetYaw, dt * 10);
+      this.yawRate = THREE.MathUtils.lerp(this.yawRate, targetYaw, dt * 12);
       if (this.grounded) {
         this.heading += this.yawRate * dt;
       } else {
-        this.heading += this.yawRate * 0.35 * dt;
+        this.heading += this.yawRate * 0.25 * dt;
       }
     } else {
       fwdSpeed *= Math.max(0, 1 - dt * 5);
@@ -507,7 +511,7 @@ export class DriveVehicle {
     // Re-evaluate axes after heading update & apply lateral tire grip
     const newFwd = this.getForwardVector();
     const newRight = this.getRightVector();
-    const grip = this.grounded ? (this.isDrifting ? this.stats.physGrip * 0.36 : this.stats.physGrip) : 0.6;
+    const grip = this.grounded ? (this.isDrifting ? this.stats.physGrip * 0.4 : this.stats.physGrip) : 0.8;
     latSpeed *= Math.max(0, 1 - grip * dt);
 
     this.velocity.copy(newFwd).multiplyScalar(fwdSpeed).addScaledVector(newRight, latSpeed);
@@ -529,16 +533,16 @@ export class DriveVehicle {
       debris.spawnSparks(this.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 8);
     }
 
-    // Vertical arcade gravity (22.5 for big-air stunt hang-time!) & ramp landings
+    // Weighty snappy arcade gravity (42.0) — exciting air without moon-floating!
     if (this.position.y > groundHeight + 0.05 || this.vy > 0) {
       this.airTime += dt;
-      this.vy -= 22.5 * dt;
+      this.vy -= 42.0 * dt;
       this.position.y += this.vy * dt;
       if (this.position.y <= groundHeight) {
         this.position.y = groundHeight;
-        if (this.airTime > 0.55) {
+        if (this.airTime > 0.45) {
           this.justLandedAirTime = this.airTime;
-          this.boost = Math.min(100, this.boost + Math.min(45, this.airTime * 18));
+          this.boost = Math.min(100, this.boost + Math.min(40, this.airTime * 22));
           debris.spawnSmoke(this.position, 6);
         }
         this.airTime = 0;

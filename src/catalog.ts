@@ -759,16 +759,16 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
     handling,
     armor,
     ramPower,
-    // Faster, punchier, more exhilarating arcade speeds!
-    physMaxSpeed: 44 + (topSpeed / 100) * 34, // 44..78 units/sec (160..280+ km/h!)
-    physAccel: 32 + (acceleration / 100) * 34,
-    physTurnRate: 1.9 + (handling / 100) * 1.4,
-    physGrip: 4.6 + (handling / 100) * 7.0,
+    // Punchy, controllable arcade speeds (easy to aim rams & carve tight corners!)
+    physMaxSpeed: 28 + (topSpeed / 100) * 18, // 28..46 units/sec (100..165 km/h)
+    physAccel: 22 + (acceleration / 100) * 18,
+    physTurnRate: 2.05 + (handling / 100) * 1.15,
+    physGrip: 6.4 + (handling / 100) * 6.5,
     // Tougher chassis HP so Derby battles last 10-14 exciting clashes instead of 3 hits!
     physMaxHp: Math.max(420, Math.round(320 + totalBrickHp * 0.85 + armor * 4.5)),
     physRamMultiplier: 0.88 + (ramPower / 100) * 1.1,
-    physBoostPower: 22 + Math.min(boostRaw, 100) * 0.34,
-    // Every car can mini-hop; Jump Springs give huge vertical stunt hops!
-    physJumpImpulse: 12 + Math.min(springCount, 4) * 5.8,
+    physBoostPower: 11 + Math.min(boostRaw, 100) * 0.12, // +11..+23 crisp nitro burst
+    // Snappy controlled hops (with g=42, lands cleanly in ~0.55–1.1s!)
+    physJumpImpulse: 11.5 + Math.min(springCount, 4) * 2.8,
   };
 }

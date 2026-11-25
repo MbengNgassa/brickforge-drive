@@ -77,7 +77,7 @@ export interface TouchInputState {
   jump: boolean;
 }
 
-const ARENA_RADIUS = 135;
+const ARENA_RADIUS = 82;
 const TOTAL_LAPS = 3;
 
 export class GameWorldController {
@@ -106,7 +106,7 @@ export class GameWorldController {
   private stuntRings: StuntRingDef[] = [];
   private pickups: PickupDef[] = [];
   private cones: KnockableCone[] = [];
-  private pillarRadius = 9.5;
+  private pillarRadius = 6.8;
 
   // Input state
   private keys = new Set<string>();
@@ -255,7 +255,7 @@ export class GameWorldController {
       this.player.velocity.set(0, 0, 0);
       this.player.vy = 0;
     } else {
-      this.player.position.set(0, 1.2, -78);
+      this.player.position.set(0, 1.2, -48);
       this.player.heading = 0;
       this.player.velocity.set(0, 0, 0);
       this.player.vy = 0;
@@ -694,13 +694,13 @@ export class GameWorldController {
   }
 
   // =========================================================================
-  // MEGA DESTRUCTION DERBY COLISEUM & STUNT PARK (135-radius massive bowl!)
+  // DESTRUCTION DERBY COLISEUM & STUNT PARK (82-radius action-packed bowl!)
   // =========================================================================
   private buildDerbyArenaWorld(scene: THREE.Scene, isFreeRoam: boolean): void {
     const floorTex = createArenaFloorTexture();
-    floorTex.repeat.set(28, 28);
+    floorTex.repeat.set(18, 18);
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(ARENA_RADIUS + 6, 80),
+      new THREE.CircleGeometry(ARENA_RADIUS + 5, 72),
       new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.72, metalness: 0.08 })
     );
     floor.rotation.x = -Math.PI / 2;
@@ -709,7 +709,7 @@ export class GameWorldController {
 
     // Outer stadium apron
     const apron = new THREE.Mesh(
-      new THREE.PlaneGeometry(760, 760),
+      new THREE.PlaneGeometry(520, 520),
       new THREE.MeshStandardMaterial({ color: 0x1a212c, roughness: 0.9 })
     );
     apron.rotation.x = -Math.PI / 2;
@@ -718,13 +718,13 @@ export class GameWorldController {
 
     // Painted arena racing & hazard lanes
     const ringSpecs = [
-      { r1: 28, r2: 29.8, color: 0xf4be17 },
-      { r1: 76, r2: 77.6, color: 0x38bdf8 },
-      { r1: ARENA_RADIUS - 4.5, r2: ARENA_RADIUS - 2.6, color: 0xd92626 },
+      { r1: 20, r2: 21.4, color: 0xf4be17 },
+      { r1: 48, r2: 49.4, color: 0x38bdf8 },
+      { r1: ARENA_RADIUS - 3.8, r2: ARENA_RADIUS - 2.2, color: 0xd92626 },
     ];
     for (const rs of ringSpecs) {
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(rs.r1, rs.r2, 72),
+        new THREE.RingGeometry(rs.r1, rs.r2, 64),
         new THREE.MeshBasicMaterial({ color: rs.color, side: THREE.DoubleSide })
       );
       ring.rotation.x = -Math.PI / 2;
@@ -733,7 +733,7 @@ export class GameWorldController {
     }
 
     // Segmented Brick-Wall Coliseum Perimeter + Stadium Floodlight Towers!
-    const wallCount = 56;
+    const wallCount = 44;
     const wallMatLight = new THREE.MeshStandardMaterial({ color: 0xbcc4d0, roughness: 0.65 });
     const wallMatRed = new THREE.MeshStandardMaterial({ color: 0xd92626, roughness: 0.45 });
     const wallMatYellow = new THREE.MeshStandardMaterial({ color: 0xf4be17, roughness: 0.45 });
@@ -743,27 +743,27 @@ export class GameWorldController {
       emissive: 0xe0f2fe,
       emissiveIntensity: 2.0,
     });
-    const segLen = (2 * Math.PI * ARENA_RADIUS) / wallCount + 0.8;
+    const segLen = (2 * Math.PI * ARENA_RADIUS) / wallCount + 0.7;
 
     for (let i = 0; i < wallCount; i++) {
       const ang = (i / wallCount) * Math.PI * 2;
       const wall = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.BoxGeometry(segLen, 10.5, 3.0), wallMatLight);
-      base.position.y = 5.25;
+      const base = new THREE.Mesh(new THREE.BoxGeometry(segLen, 9.0, 2.8), wallMatLight);
+      base.position.y = 4.5;
       base.castShadow = true;
       base.receiveShadow = true;
       const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(segLen, 1.6, 3.3),
+        new THREE.BoxGeometry(segLen, 1.5, 3.1),
         i % 2 === 0 ? wallMatRed : wallMatYellow
       );
-      stripe.position.y = 2.0;
+      stripe.position.y = 1.9;
       wall.add(base, stripe);
 
-      if (i % 7 === 0) {
-        const pole = new THREE.Mesh(new THREE.BoxGeometry(1.8, 28, 1.8), towerMat);
-        pole.position.set(0, 14, 1.5);
-        const bank = new THREE.Mesh(new THREE.BoxGeometry(9.5, 2.8, 1.2), lampMat);
-        bank.position.set(0, 27.5, 0.2);
+      if (i % 6 === 0) {
+        const pole = new THREE.Mesh(new THREE.BoxGeometry(1.6, 24, 1.6), towerMat);
+        pole.position.set(0, 12, 1.4);
+        const bank = new THREE.Mesh(new THREE.BoxGeometry(8.5, 2.4, 1.1), lampMat);
+        bank.position.set(0, 23.5, 0.2);
         wall.add(pole, bank);
       }
 
@@ -772,107 +772,91 @@ export class GameWorldController {
       scene.add(wall);
     }
 
-    // Central Coliseum Smash Tower (in Derby/Family; Giant Stunt Mega-Ramp + Turbo Runway in Stunt Park!)
+    // Central Coliseum Smash Tower (in Derby/Family; Center Stunt Ramp + Turbo Runway in Stunt Park!)
     if (!isFreeRoam) {
-      this.pillarRadius = 9.5;
+      this.pillarRadius = 6.8;
       const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(this.pillarRadius, this.pillarRadius + 1.0, 15, 20),
+        new THREE.CylinderGeometry(this.pillarRadius, this.pillarRadius + 0.8, 13, 20),
         new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.48, metalness: 0.35 })
       );
-      pillar.position.y = 7.5;
+      pillar.position.y = 6.5;
       pillar.castShadow = true;
       pillar.receiveShadow = true;
       const band1 = new THREE.Mesh(
-        new THREE.CylinderGeometry(this.pillarRadius + 0.35, this.pillarRadius + 0.35, 2.0, 20),
+        new THREE.CylinderGeometry(this.pillarRadius + 0.3, this.pillarRadius + 0.3, 1.8, 20),
         wallMatYellow
       );
-      band1.position.y = 2.4;
+      band1.position.y = 2.2;
       const band2 = new THREE.Mesh(
-        new THREE.CylinderGeometry(this.pillarRadius + 0.35, this.pillarRadius + 0.35, 1.4, 20),
+        new THREE.CylinderGeometry(this.pillarRadius + 0.3, this.pillarRadius + 0.3, 1.3, 20),
         wallMatRed
       );
-      band2.position.y = 13.5;
+      band2.position.y = 11.6;
       scene.add(pillar, band1, band2);
     } else {
       this.pillarRadius = 0;
-      // Central Stunt Park Big-Air Mega Ramp + 3-pad Turbo Boost Runway + Sky Ring!
-      this.createRamp(scene, 0, 0, 0, 15, 22, 7.2);
-      this.createBoostPad(scene, new THREE.Vector3(0, 0, -42), 0);
-      this.createBoostPad(scene, new THREE.Vector3(0, 0, -28), 0);
-      this.createBoostPad(scene, new THREE.Vector3(0, 0, -16), 0);
-      this.createStuntRing(scene, new THREE.Vector3(0, 16.5, 28), 0);
-      this.createStuntRing(scene, new THREE.Vector3(0, 12.5, 52), 0);
+      // Central Stunt Park Launch Ramp + 2-pad Turbo Runway + Crisp Mid-Air Rings!
+      this.createRamp(scene, 0, 0, 0, 12.5, 16, 4.6);
+      this.createBoostPad(scene, new THREE.Vector3(0, 0, -24), 0);
+      this.createBoostPad(scene, new THREE.Vector3(0, 0, -13), 0);
+      this.createStuntRing(scene, new THREE.Vector3(0, 9.2, 20), 0);
+      this.createStuntRing(scene, new THREE.Vector3(0, 7.6, 36), 0);
     }
 
-    // 4 Inner Bowl Big-Air Ramps + floating Sky Stunt Rings right in their flight paths!
-    this.createRamp(scene, 0, 48, 0, 11, 15, 4.8);
-    this.createRamp(scene, 0, -48, Math.PI, 11, 15, 4.8);
-    this.createRamp(scene, 48, 0, Math.PI / 2, 11, 15, 4.8);
-    this.createRamp(scene, -48, 0, -Math.PI / 2, 11, 15, 4.8);
+    // 4 Inner Bowl Ramps + Reachable Stunt Rings in their flight arcs!
+    this.createRamp(scene, 0, 32, 0, 9.5, 11.5, 3.4);
+    this.createRamp(scene, 0, -32, Math.PI, 9.5, 11.5, 3.4);
+    this.createRamp(scene, 32, 0, Math.PI / 2, 9.5, 11.5, 3.4);
+    this.createRamp(scene, -32, 0, -Math.PI / 2, 9.5, 11.5, 3.4);
 
-    this.createStuntRing(scene, new THREE.Vector3(0, 13.5, 74), 0);
-    this.createStuntRing(scene, new THREE.Vector3(0, 13.5, -74), 0);
-    this.createStuntRing(scene, new THREE.Vector3(74, 13.5, 0), Math.PI / 2);
-    this.createStuntRing(scene, new THREE.Vector3(-74, 13.5, 0), Math.PI / 2);
+    this.createStuntRing(scene, new THREE.Vector3(0, 8.2, 50), 0);
+    this.createStuntRing(scene, new THREE.Vector3(0, 8.2, -50), 0);
+    this.createStuntRing(scene, new THREE.Vector3(50, 8.2, 0), Math.PI / 2);
+    this.createStuntRing(scene, new THREE.Vector3(-50, 8.2, 0), Math.PI / 2);
 
-    // 4 Outer Corner Mega-Air Stunt Ramps!
-    this.createRamp(scene, 68, 68, -Math.PI * 0.75, 13, 18, 5.8);
-    this.createRamp(scene, -68, 68, Math.PI * 0.75, 13, 18, 5.8);
-    this.createRamp(scene, 68, -68, -Math.PI * 0.25, 13, 18, 5.8);
-    this.createRamp(scene, -68, -68, Math.PI * 0.25, 13, 18, 5.8);
-
-    // 8 Giant 3D Coiled SPRING BOUNCE PADS (launches vehicles SKY-HIGH with a BOING!)
+    // 4 Diagonal Coiled SPRING BOUNCE PADS (snappy fun bounce that lands cleanly!)
     const springCoords: [number, number][] = [
       [24, 24],
       [-24, 24],
       [24, -24],
       [-24, -24],
-      [88, 36],
-      [-88, 36],
-      [88, -36],
-      [-88, -36],
     ];
     for (const [sx, sz] of springCoords) {
-      this.createSpringPad(scene, new THREE.Vector3(sx, 0, sz), 33);
+      this.createSpringPad(scene, new THREE.Vector3(sx, 0, sz), 23.5);
     }
-    // Floating rings directly above 2 diagonal spring pads for vertical spring stunts!
-    this.createStuntRing(scene, new THREE.Vector3(24, 15.5, 24), Math.PI / 4);
-    this.createStuntRing(scene, new THREE.Vector3(-24, 15.5, -24), Math.PI / 4);
+    this.createStuntRing(scene, new THREE.Vector3(24, 8.5, 24), Math.PI / 4);
+    this.createStuntRing(scene, new THREE.Vector3(-24, 8.5, -24), Math.PI / 4);
 
-    // 8 High-Speed Plasma Boost Pads across inner & outer speed rings
+    // 4 Outer Speed Ring Boost Pads
     const padCoords: [number, number, number][] = [
-      [38, 38, -Math.PI * 0.75],
-      [-38, 38, Math.PI * 0.75],
-      [38, -38, -Math.PI * 0.25],
-      [-38, -38, Math.PI * 0.25],
-      [0, 96, Math.PI / 2],
-      [0, -96, -Math.PI / 2],
-      [96, 0, 0],
-      [-96, 0, Math.PI],
+      [42, 42, -Math.PI * 0.75],
+      [-42, 42, Math.PI * 0.75],
+      [42, -42, -Math.PI * 0.25],
+      [-42, -42, Math.PI * 0.25],
     ];
     for (const [px, pz, rot] of padCoords) {
       this.createBoostPad(scene, new THREE.Vector3(px, 0, pz), rot);
     }
 
-    // 6 Repair Wrenches & 6 Nitro Cores distributed across the huge arena
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      this.createPickup(scene, new THREE.Vector3(Math.sin(a) * 105, 1.5, Math.cos(a) * 105), i % 2 === 0 ? 'repair' : 'nitro');
-      const aInner = a + Math.PI / 6;
-      this.createPickup(scene, new THREE.Vector3(Math.sin(aInner) * 58, 1.5, Math.cos(aInner) * 58), i % 2 === 0 ? 'nitro' : 'repair');
+    // 4 Repair Wrenches & 4 Nitro Cores easy to spot & contest!
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      this.createPickup(scene, new THREE.Vector3(Math.sin(a) * 62, 1.5, Math.cos(a) * 62), i % 2 === 0 ? 'repair' : 'nitro');
+      const aInner = a + Math.PI / 4;
+      this.createPickup(scene, new THREE.Vector3(Math.sin(aInner) * 38, 1.5, Math.cos(aInner) * 38), i % 2 === 0 ? 'nitro' : 'repair');
     }
 
-    // 36 Scatterable orange safety cones arranged in clusters & hazard rings!
+    // 24 Scatterable orange safety cones
     const coneMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.45 });
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
     const conePositions: [number, number][] = [];
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
-      conePositions.push([Math.sin(a) * 78, Math.cos(a) * 78]);
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      conePositions.push([Math.sin(a) * 52, Math.cos(a) * 52]);
     }
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      conePositions.push([Math.sin(a) * 32, Math.cos(a) * 32]);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      conePositions.push([Math.sin(a) * 21, Math.cos(a) * 21]);
     }
     for (const [cx, cz] of conePositions) {
       const g = new THREE.Group();
@@ -900,7 +884,7 @@ export class GameWorldController {
     const enableLights = this.engine.getQuality() === 'ultra';
 
     this.player = new DriveVehicle('player', this.playerBlueprint.name, this.playerBlueprint, true, enableLights);
-    this.player.position.set(0, 0.1, -82);
+    this.player.position.set(0, 0.1, -50);
     this.player.heading = 0;
     this.player.syncTransform();
     scene.add(this.player.root);
@@ -941,7 +925,7 @@ export class GameWorldController {
       v.hp = v.maxHp;
 
       const ang = ((i + 1) / (rivalSpecs.length + 1)) * Math.PI * 2;
-      const r = 84;
+      const r = 50;
       v.position.set(Math.sin(ang) * r, 0.1, Math.cos(ang) * r);
       // Angle slightly toward a neighboring sector so AIs fan out organically at kickoff!
       const scatterAngle = ang + (i % 2 === 0 ? 0.55 : -0.55);
@@ -959,7 +943,7 @@ export class GameWorldController {
         stuckTimer: 0,
         recoverTimer: 0,
         recoverSteer: i % 2 === 0 ? 1 : -1,
-        roamTarget: new THREE.Vector3(Math.sin(roamAng) * 65, 0, Math.cos(roamAng) * 65),
+        roamTarget: new THREE.Vector3(Math.sin(roamAng) * 42, 0, Math.cos(roamAng) * 42),
         flankSign: i % 2 === 0 ? 1 : -1,
       });
     });
@@ -1132,14 +1116,14 @@ export class GameWorldController {
         const rampH = ratio * r.height;
         if (rampH > h) {
           h = rampH;
-          // SKY-HIGH MEGA RAMP LAUNCH!
+          // Crisp, controlled arcade ramp launch (exciting air that lands cleanly inside the arena!)
           const fwdSpeed = v.getSpeed();
-          if (ratio > 0.72 && fwdSpeed > 14 && v.grounded && v.vy < 8) {
-            v.vy = Math.min(40, 14 + fwdSpeed * 0.64 + v.stats.springCount * 3.2);
+          if (ratio > 0.72 && fwdSpeed > 11 && v.grounded && v.vy < 6) {
+            v.vy = Math.min(23, 9.5 + fwdSpeed * 0.34 + v.stats.springCount * 1.4);
             v.grounded = false;
             if (v.isPlayer) {
               sound.playBoing();
-              this.showBanner('MEGA LAUNCH! 🚀');
+              this.showBanner('BIG LAUNCH! 🚀');
             }
           }
         }
@@ -1310,7 +1294,7 @@ export class GameWorldController {
             brain.state = 'roam';
             brain.targetId = null;
             const randAng = Math.random() * Math.PI * 2;
-            const randR = 35 + Math.random() * 68;
+            const randR = 20 + Math.random() * 44;
             brain.roamTarget.set(Math.sin(randAng) * randR, 0, Math.cos(randAng) * randR);
           }
         }
@@ -1325,40 +1309,40 @@ export class GameWorldController {
 
     if (brain.state === 'fight' && curTarget) {
       targetDist = v.position.distanceTo(curTarget.position);
-      const lead = brain.role === 'flanker' ? 0.55 : 0.35;
+      const lead = brain.role === 'flanker' ? 0.5 : 0.3;
       targetX = curTarget.position.x + curTarget.velocity.x * lead;
       targetZ = curTarget.position.z + curTarget.velocity.z * lead;
 
       // Flankers swing wide at medium range to T-bone targets cleanly instead of nose-locking!
-      if (brain.role === 'flanker' && targetDist > 22 && targetDist < 65) {
+      if (brain.role === 'flanker' && targetDist > 18 && targetDist < 48) {
         const dx = targetX - v.position.x;
         const dz = targetZ - v.position.z;
         const len = Math.max(1, Math.hypot(dx, dz));
-        targetX += (-dz / len) * 14 * brain.flankSign;
-        targetZ += (dx / len) * 14 * brain.flankSign;
+        targetX += (-dz / len) * 11 * brain.flankSign;
+        targetZ += (dx / len) * 11 * brain.flankSign;
       }
-      wantsRamBoost = targetDist < 48 && targetDist > 10 && v.boost > 36;
+      wantsRamBoost = targetDist < 36 && targetDist > 9 && v.boost > 36;
     } else if (brain.state === 'heal' || brain.state === 'nitro') {
       // If someone already grabbed our pickup, re-decide immediately
       if (targetDist < 5.5) {
         brain.decisionTimer = 0;
       }
-      wantsRamBoost = targetDist > 28 && v.boost > 55;
-    } else if (brain.state === 'roam' && targetDist < 12) {
+      wantsRamBoost = targetDist > 22 && v.boost > 55;
+    } else if (brain.state === 'roam' && targetDist < 10) {
       brain.decisionTimer = 0;
     }
 
     // 4. Smart obstacle avoidance: skirt smoothly around the central smash pillar & outer walls
     const distFromCenter = Math.hypot(v.position.x, v.position.z);
-    if (this.pillarRadius > 0 && distFromCenter < this.pillarRadius + 11) {
+    if (this.pillarRadius > 0 && distFromCenter < this.pillarRadius + 9) {
       // Steer tangentially around the pillar rather than bouncing off it
       const rx = v.position.x / Math.max(0.1, distFromCenter);
       const rz = v.position.z / Math.max(0.1, distFromCenter);
       const tx = -rz * brain.flankSign;
       const tz = rx * brain.flankSign;
-      targetX = v.position.x + (rx * 10 + tx * 16);
-      targetZ = v.position.z + (rz * 10 + tz * 16);
-    } else if (distFromCenter > ARENA_RADIUS - 16) {
+      targetX = v.position.x + (rx * 8 + tx * 14);
+      targetZ = v.position.z + (rz * 8 + tz * 14);
+    } else if (distFromCenter > ARENA_RADIUS - 13) {
       // Curve back inward before scraping the coliseum wall
       targetX = targetX * 0.45;
       targetZ = targetZ * 0.45;
@@ -1378,7 +1362,7 @@ export class GameWorldController {
       v.stats.springCount > 0 &&
       v.grounded &&
       v.jumpCooldown <= 0 &&
-      targetDist < 18 &&
+      targetDist < 16 &&
       Math.random() < 0.015;
     return { throttle, steer, boost, handbrake: Math.abs(diff) > 1.1, jump };
   }
@@ -1416,7 +1400,7 @@ export class GameWorldController {
         const minDist = a.radius + b.radius;
 
         // Skip collision if one car jumped cleanly over the other!
-        if (Math.abs(a.position.y - b.position.y) > 4.2) continue;
+        if (Math.abs(a.position.y - b.position.y) > 5.0) continue;
 
         if (dist < minDist && dist > 0.001) {
           const nx = dx / dist;
@@ -1434,17 +1418,17 @@ export class GameWorldController {
           const closingSpeed = rvx * nx + rvz * nz;
 
           if (closingSpeed > 0.5) {
-            const impulse = closingSpeed * 1.18;
+            const impulse = closingSpeed * 1.15;
             a.velocity.x -= nx * impulse * (b.stats.mass / totalMass);
             a.velocity.z -= nz * impulse * (b.stats.mass / totalMass);
             b.velocity.x += nx * impulse * (a.stats.mass / totalMass);
             b.velocity.z += nz * impulse * (a.stats.mass / totalMass);
 
-            const minCrashSpeed = isBattleMode ? 9.5 : 18;
+            const minCrashSpeed = isBattleMode ? 7.5 : 14;
             if (closingSpeed > minCrashSpeed) {
               const impactPt = new THREE.Vector3(
                 (a.position.x + b.position.x) * 0.5,
-                Math.max(a.position.y, b.position.y) + 1.2,
+                Math.max(a.position.y, b.position.y) + 1.4,
                 (a.position.z + b.position.z) * 0.5
               );
 
@@ -1452,15 +1436,15 @@ export class GameWorldController {
               const bFwdDot = -(b.getForwardVector().x * nx + b.getForwardVector().z * nz);
 
               // Balanced damage with 14% maxHp single-hit cap so battles last 10+ exciting crashes!
-              const modeScale = isBattleMode ? 1.45 : 0.35;
+              const modeScale = isBattleMode ? 1.85 : 0.4;
               const rawDmgToB =
-                (closingSpeed - 6) *
+                (closingSpeed - 4.5) *
                 modeScale *
                 a.stats.physRamMultiplier *
                 (aFwdDot > 0.45 ? 1.32 : 0.78) *
                 (a.isBoosting ? 1.25 : 1.0);
               const rawDmgToA =
-                (closingSpeed - 6) *
+                (closingSpeed - 4.5) *
                 modeScale *
                 b.stats.physRamMultiplier *
                 (bFwdDot > 0.45 ? 1.32 : 0.78) *
@@ -1556,23 +1540,23 @@ export class GameWorldController {
         this.updateRaceSplineProgress(v);
       }
 
-      // Giant Coiled SPRING BOUNCE PADS!
+      // Coiled SPRING BOUNCE PADS (snappy fun hop that lands cleanly!)
       for (const sp of this.springPads) {
         if (v.position.y > 3.2) continue;
         const dx = v.position.x - sp.pos.x;
         const dz = v.position.z - sp.pos.z;
-        if (dx * dx + dz * dz < sp.radius * sp.radius && v.vy < 12) {
-          v.vy = sp.power + v.stats.springCount * 3.2;
+        if (dx * dx + dz * dz < sp.radius * sp.radius && v.vy < 10) {
+          v.vy = Math.min(26, sp.power + v.stats.springCount * 1.5);
           v.grounded = false;
-          v.boost = Math.min(100, v.boost + 35);
+          v.boost = Math.min(100, v.boost + 30);
           const fwd = v.getForwardVector();
-          v.velocity.addScaledVector(fwd, 12);
+          v.velocity.addScaledVector(fwd, 5);
           sp.bounceAnim = 1.0;
           this.debris.spawnSparks(sp.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), 18);
           if (v.isPlayer) {
             sound.playBoing();
             this.score += 250;
-            this.showBanner('MEGA SPRING BOUNCE! 🌀');
+            this.showBanner('SPRING BOUNCE! 🌀');
             if (navigator.vibrate) navigator.vibrate(35);
           }
         }
@@ -1598,11 +1582,11 @@ export class GameWorldController {
       for (const pad of this.boostPads) {
         if (v.position.y > 2.5) continue;
         if (v.position.distanceToSquared(pad.pos) < pad.radius * pad.radius) {
-          v.boost = Math.min(100, v.boost + 45);
+          v.boost = Math.min(100, v.boost + 40);
           const fwd = v.getForwardVector();
           const curSpd = v.getSpeed();
-          if (curSpd < v.stats.physMaxSpeed + 28) {
-            v.velocity.addScaledVector(fwd, 18);
+          if (curSpd < v.stats.physMaxSpeed + 16) {
+            v.velocity.addScaledVector(fwd, 11);
           }
           if (v.isPlayer && !this.eventBannerTimer) {
             sound.playPickup(false);
@@ -1829,14 +1813,14 @@ export class GameWorldController {
   private updateCamera(dt: number, snap = false): void {
     const cam = this.engine.camera;
     const fwd = this.player.getForwardVector();
-    const speedRatio = Math.min(1, this.player.getSpeed() / 68);
+    const speedRatio = Math.min(1, this.player.getSpeed() / 52);
     const isLandscape = window.innerWidth > window.innerHeight;
     const roofY = this.player.roofY;
     const frontZ = this.player.frontZ;
 
     // Dynamic FOV warp when firing plasma thrusters
-    const baseFov = this.cameraMode === 2 ? 70 : isLandscape ? 60 : 66;
-    const targetFov = this.player.isBoosting ? baseFov + 12 : baseFov + speedRatio * 6;
+    const baseFov = this.cameraMode === 2 ? 68 : isLandscape ? 58 : 64;
+    const targetFov = this.player.isBoosting ? baseFov + 9 : baseFov + speedRatio * 5;
     cam.fov = snap ? targetFov : THREE.MathUtils.lerp(cam.fov, targetFov, dt * 6);
     cam.updateProjectionMatrix();
 
@@ -1845,15 +1829,15 @@ export class GameWorldController {
 
     if (this.cameraMode === 2) {
       // HOOD / BUMPER CAM — mounted cleanly just ahead of frontZ so zero bricks/horns/turrets ever block the lens!
-      const hoodY = Math.max(2.3, Math.min(roofY * 0.72, 3.8));
+      const hoodY = Math.max(2.6, Math.min(roofY * 0.72, 4.4));
       desiredPos = this.player.position
         .clone()
-        .addScaledVector(fwd, frontZ + 0.35)
+        .addScaledVector(fwd, frontZ + 0.4)
         .add(new THREE.Vector3(0, hoodY, 0));
       desiredLook = this.player.position
         .clone()
         .addScaledVector(fwd, 36)
-        .add(new THREE.Vector3(0, Math.max(1.8, hoodY - 0.55), 0));
+        .add(new THREE.Vector3(0, Math.max(2.0, hoodY - 0.55), 0));
       if (snap) {
         this.camPosCurrent.copy(desiredPos);
         this.camLookCurrent.copy(desiredLook);
@@ -1862,16 +1846,16 @@ export class GameWorldController {
         this.camLookCurrent.lerp(desiredLook, Math.min(1, dt * 26));
       }
     } else {
-      // Camera 0: Hero Chase | Camera 1: Wide Arena Overview — always clears the tallest roof!
+      // Camera 0: Hero Chase | Camera 1: Wide Arena Overview — bold chunky cars with clear forward sightlines!
       const isWide = this.cameraMode === 1;
       const dist = isWide
-        ? Math.max(21.5, frontZ * 4.0 + 9.5)
-        : Math.max(14.8, frontZ * 3.0 + 6.5);
+        ? Math.max(17.5, frontZ * 3.1 + 6.0)
+        : Math.max(11.8, frontZ * 2.25 + 4.2);
       const height = isWide
-        ? Math.max(10.2, roofY + 5.8)
-        : Math.max(6.4, roofY + 2.8);
-      const lookAhead = isWide ? 18.0 : 14.5;
-      const lookY = isWide ? 2.0 : Math.max(2.1, roofY * 0.55);
+        ? Math.max(8.4, roofY + 4.2)
+        : Math.max(5.2, roofY + 1.9);
+      const lookAhead = isWide ? 15.0 : 12.0;
+      const lookY = isWide ? 2.1 : Math.max(2.2, roofY * 0.52);
 
       desiredPos = this.player.position
         .clone()
@@ -2079,8 +2063,8 @@ export class GameWorldController {
         if (v.justHopped) {
           sound.playBoing();
         }
-        if (v.justLandedAirTime > 1.1) {
-          const pts = Math.round(v.justLandedAirTime * 350);
+        if (v.justLandedAirTime > 0.72) {
+          const pts = Math.round(v.justLandedAirTime * 450);
           this.score += pts;
           this.showBanner(`BIG AIR ${v.justLandedAirTime.toFixed(1)}s! +${pts}`);
         }

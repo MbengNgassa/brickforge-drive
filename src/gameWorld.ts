@@ -1828,16 +1828,16 @@ export class GameWorldController {
     let desiredLook: THREE.Vector3;
 
     if (this.cameraMode === 2) {
-      // HOOD / BUMPER CAM — mounted cleanly just ahead of frontZ so zero bricks/horns/turrets ever block the lens!
-      const hoodY = Math.max(2.6, Math.min(roofY * 0.72, 4.4));
+      // HOOD / BUMPER CAM — mounted high on the nose looking slightly downward onto the road!
+      const hoodY = Math.max(3.0, Math.min(roofY * 0.85, 4.8));
       desiredPos = this.player.position
         .clone()
         .addScaledVector(fwd, frontZ + 0.4)
         .add(new THREE.Vector3(0, hoodY, 0));
       desiredLook = this.player.position
         .clone()
-        .addScaledVector(fwd, 36)
-        .add(new THREE.Vector3(0, Math.max(2.0, hoodY - 0.55), 0));
+        .addScaledVector(fwd, 28)
+        .add(new THREE.Vector3(0, Math.max(1.2, hoodY - 1.35), 0));
       if (snap) {
         this.camPosCurrent.copy(desiredPos);
         this.camLookCurrent.copy(desiredLook);
@@ -1846,16 +1846,16 @@ export class GameWorldController {
         this.camLookCurrent.lerp(desiredLook, Math.min(1, dt * 26));
       }
     } else {
-      // Camera 0: Hero Chase | Camera 1: Wide Arena Overview — bold chunky cars with clear forward sightlines!
+      // Camera 0: Elevated Hero Chase (~19° down) | Camera 1: High Tactical (~26° down)
       const isWide = this.cameraMode === 1;
       const dist = isWide
-        ? Math.max(17.5, frontZ * 3.1 + 6.0)
-        : Math.max(11.8, frontZ * 2.25 + 4.2);
+        ? Math.max(16.5, frontZ * 2.7 + 6.2)
+        : Math.max(13.0, frontZ * 2.3 + 4.8);
       const height = isWide
-        ? Math.max(8.4, roofY + 4.2)
-        : Math.max(5.2, roofY + 1.9);
-      const lookAhead = isWide ? 15.0 : 12.0;
-      const lookY = isWide ? 2.1 : Math.max(2.2, roofY * 0.52);
+        ? Math.max(14.0, roofY + 9.6)
+        : Math.max(8.8, roofY + 5.2);
+      const lookAhead = isWide ? 10.5 : 9.5;
+      const lookY = isWide ? 0.8 : 1.2;
 
       desiredPos = this.player.position
         .clone()

@@ -508,10 +508,13 @@ export class DriveVehicle {
       this.isBoosting = false;
     }
 
-    // Re-evaluate axes after heading update & apply lateral tire grip
+    // Re-evaluate axes after heading update & apply lateral tire grip (tall rigs sway & slide more!)
     const newFwd = this.getForwardVector();
     const newRight = this.getRightVector();
-    const grip = this.grounded ? (this.isDrifting ? this.stats.physGrip * 0.4 : this.stats.physGrip) : 0.8;
+    const tallGripPenalty = this.roofY > 6.0 ? 0.86 : 1.0;
+    const grip = this.grounded
+      ? (this.isDrifting ? this.stats.physGrip * 0.4 : this.stats.physGrip) * tallGripPenalty
+      : 0.8;
     latSpeed *= Math.max(0, 1 - grip * dt);
 
     this.velocity.copy(newFwd).multiplyScalar(fwdSpeed).addScaledVector(newRight, latSpeed);
@@ -557,13 +560,15 @@ export class DriveVehicle {
       this.airTime = 0;
     }
 
-    // Dynamic body roll & pitch (lively arcade suspension + mid-air nose angle!)
+    // Dynamic body roll & pitch (tall skyscraper builds lean noticeably more in sharp turns!)
     const targetPitch = !this.grounded
       ? THREE.MathUtils.clamp(-this.vy * 0.018, -0.32, 0.28)
       : this.isBoosting
         ? -0.085
         : -input.throttle * 0.038;
-    const targetRoll = -input.steer * Math.min(1, Math.abs(fwdSpeed) / 28) * (this.isDrifting ? 0.14 : 0.07);
+    const heightRollMult = Math.min(2.1, 0.68 + this.roofY * 0.1);
+    const targetRoll =
+      -input.steer * Math.min(1, Math.abs(fwdSpeed) / 28) * (this.isDrifting ? 0.14 : 0.075) * heightRollMult;
     this.bodyTilt.rotation.x = THREE.MathUtils.lerp(this.bodyTilt.rotation.x, targetPitch, dt * 8);
     this.bodyTilt.rotation.z = THREE.MathUtils.lerp(this.bodyTilt.rotation.z, targetRoll, dt * 8);
 

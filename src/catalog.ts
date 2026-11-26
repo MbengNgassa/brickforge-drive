@@ -735,17 +735,24 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
 
   const effectiveMass = Math.max(8, mass);
   const weightPenalty = Math.max(0, (effectiveMass - 38) * 0.28);
-  const wheelFactor = wheelCount >= 4 ? 1.0 : wheelCount >= 2 ? 0.85 : 0.62;
+  const wheelFactor = wheelCount >= 4 ? 1.0 : wheelCount >= 2 ? 0.86 : 0.65;
 
   const topSpeed = Math.round(Math.min(100, Math.max(25, (topSpeedRaw - weightPenalty * 0.55) * wheelFactor)));
   const acceleration = Math.round(
     Math.min(100, Math.max(28, (50 + thrusterCount * 12 + Math.min(wheelCount, 6) * 4 - weightPenalty * 0.7) * wheelFactor))
   );
   const handling = Math.round(
-    Math.min(100, Math.max(28, (gripRaw - weightPenalty * 0.35) * (wheelCount >= 4 ? 1.0 : 0.78)))
+    Math.min(100, Math.max(20, (gripRaw - weightPenalty * 0.35) * (wheelCount >= 4 ? 1.0 : 0.68)))
   );
   const armor = Math.round(Math.min(100, Math.max(20, armorRaw * 0.85 + effectiveMass * 0.55)));
   const ramPower = Math.round(Math.min(100, Math.max(20, ramRaw * 1.35 + effectiveMass * 0.65)));
+
+  // Extreme build multipliers: stacking rockets on a light frame pushes speed into wild overdrive,
+  // while too few wheels or overloaded thrusters make steering loose & tail-happy!
+  const rocketOverdrive = Math.max(0, thrusterCount - 2) * (effectiveMass < 40 ? 3.2 : 1.8);
+  const looseGripFactor =
+    (wheelCount <= 2 ? 0.62 : 1.0) *
+    (thrusterCount >= 4 && gripRaw < 65 ? 0.78 : 1.0);
 
   return {
     brickCount: bricks.length,
@@ -759,15 +766,15 @@ export function calculateVehicleStats(bricks: PlacedBrick[]): VehicleStats {
     handling,
     armor,
     ramPower,
-    // Punchy, controllable arcade speeds (easy to aim rams & carve tight corners!)
-    physMaxSpeed: 28 + (topSpeed / 100) * 18, // 28..46 units/sec (100..165 km/h)
-    physAccel: 22 + (acceleration / 100) * 18,
-    physTurnRate: 2.05 + (handling / 100) * 1.15,
-    physGrip: 6.4 + (handling / 100) * 6.5,
+    // Controllable baseline (28..46), plus wild rocket-sled overdrive up to ~58+!
+    physMaxSpeed: 28 + (topSpeed / 100) * 18 + Math.min(14, rocketOverdrive),
+    physAccel: 22 + (acceleration / 100) * 18 + Math.min(10, rocketOverdrive * 0.7),
+    physTurnRate: 1.95 + (handling / 100) * 1.35,
+    physGrip: Math.max(3.0, (5.8 + (handling / 100) * 7.2) * looseGripFactor),
     // Tougher chassis HP so Derby battles last 10-14 exciting clashes instead of 3 hits!
     physMaxHp: Math.max(420, Math.round(320 + totalBrickHp * 0.85 + armor * 4.5)),
-    physRamMultiplier: 0.88 + (ramPower / 100) * 1.1,
-    physBoostPower: 11 + Math.min(boostRaw, 100) * 0.12, // +11..+23 crisp nitro burst
+    physRamMultiplier: 0.88 + (ramPower / 100) * 1.15,
+    physBoostPower: 11 + Math.min(boostRaw, 100) * 0.12 + Math.min(8, rocketOverdrive * 0.6),
     // Snappy controlled hops (with g=42, lands cleanly in ~0.55–1.1s!)
     physJumpImpulse: 11.5 + Math.min(springCount, 4) * 2.8,
   };

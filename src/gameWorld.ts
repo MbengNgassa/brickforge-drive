@@ -1818,6 +1818,7 @@ export class GameWorldController {
     const isLandscape = window.innerWidth > window.innerHeight;
     const roofY = this.player.roofY;
     const frontZ = this.player.frontZ;
+    const extraRoof = Math.max(0, roofY - 4.5);
 
     // Dynamic FOV warp when firing plasma thrusters
     const baseFov = this.cameraMode === 2 ? 68 : isLandscape ? 58 : 64;
@@ -1829,16 +1830,16 @@ export class GameWorldController {
     let desiredLook: THREE.Vector3;
 
     if (this.cameraMode === 2) {
-      // HOOD / BUMPER CAM — mounted high on the nose looking slightly downward onto the road!
-      const hoodY = Math.max(3.0, Math.min(roofY * 0.85, 4.8));
+      // HOOD / BUMPER CAM — mounted high on the nose looking downward onto the road (scales for tall rigs!)
+      const hoodY = Math.max(3.2, Math.min(roofY * 0.82, 7.5));
       desiredPos = this.player.position
         .clone()
-        .addScaledVector(fwd, frontZ + 0.4)
+        .addScaledVector(fwd, frontZ + 0.45)
         .add(new THREE.Vector3(0, hoodY, 0));
       desiredLook = this.player.position
         .clone()
-        .addScaledVector(fwd, 28)
-        .add(new THREE.Vector3(0, Math.max(1.2, hoodY - 1.35), 0));
+        .addScaledVector(fwd, 28 + extraRoof * 0.8)
+        .add(new THREE.Vector3(0, Math.max(1.0, hoodY - 1.65), 0));
       if (snap) {
         this.camPosCurrent.copy(desiredPos);
         this.camLookCurrent.copy(desiredLook);
@@ -1847,16 +1848,16 @@ export class GameWorldController {
         this.camLookCurrent.lerp(desiredLook, Math.min(1, dt * 26));
       }
     } else {
-      // Camera 0: Elevated Hero Chase (~19° down) | Camera 1: High Tactical (~26° down)
+      // Camera 0: Elevated Hero Chase (~22° down) | Camera 1: High Tactical (~29° down) — clears skyscraper builds!
       const isWide = this.cameraMode === 1;
       const dist = isWide
-        ? Math.max(16.5, frontZ * 2.7 + 6.2)
-        : Math.max(13.0, frontZ * 2.3 + 4.8);
+        ? Math.max(17.5, frontZ * 2.7 + 6.5 + extraRoof * 0.95)
+        : Math.max(13.8, frontZ * 2.3 + 5.0 + extraRoof * 0.85);
       const height = isWide
-        ? Math.max(14.0, roofY + 9.6)
-        : Math.max(8.8, roofY + 5.2);
-      const lookAhead = isWide ? 10.5 : 9.5;
-      const lookY = isWide ? 0.8 : 1.2;
+        ? Math.max(16.5, roofY * 2.1 + 7.5)
+        : Math.max(10.8, roofY * 1.9 + 3.4);
+      const lookAhead = (isWide ? 11.5 : 10.5) + extraRoof * 0.45;
+      const lookY = isWide ? 0.7 : 1.0;
 
       desiredPos = this.player.position
         .clone()

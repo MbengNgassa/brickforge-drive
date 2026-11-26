@@ -95,7 +95,7 @@ export class GameWorldController {
   private trackCurve: THREE.CatmullRomCurve3 | null = null;
   private trackSamples: THREE.Vector3[] = [];
   private trackTangents: THREE.Vector3[] = [];
-  private trackHalfWidth = 13.5;
+  private trackHalfWidth = 19.0;
   private waypointMesh: THREE.Object3D | null = null;
   private wrongWayTimer = 0;
 
@@ -269,7 +269,7 @@ export class GameWorldController {
     const isRace = this.mode === 'race';
     const skyColor = isRace ? 0x62a8e5 : 0x263244;
     scene.background = new THREE.Color(skyColor);
-    scene.fog = new THREE.Fog(skyColor, isRace ? 150 : 160, isRace ? 460 : 420);
+    scene.fog = new THREE.Fog(skyColor, isRace ? 190 : 160, isRace ? 580 : 420);
 
     const hemi = new THREE.HemisphereLight(isRace ? 0xe0f2fe : 0xdbeafe, isRace ? 0xc26d42 : 0x374151, isRace ? 0.95 : 0.9);
     scene.add(hemi);
@@ -293,13 +293,13 @@ export class GameWorldController {
   }
 
   // =========================================================================
-  // RED ROCK CANYON CIRCUIT RACE (Crystal-clear asphalt + brick guardrails!)
+  // RED ROCK CANYON CIRCUIT RACE (Wide Grand Prix circuit for big brick rigs!)
   // =========================================================================
   private buildCanyonRaceWorld(scene: THREE.Scene): void {
     // Expansive desert canyon ground
     const groundTex = createCanyonGroundTexture();
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(1100, 1100),
+      new THREE.PlaneGeometry(1500, 1500),
       new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.92 })
     );
     ground.rotation.x = -Math.PI / 2;
@@ -307,22 +307,23 @@ export class GameWorldController {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Sweeping closed canyon racing circuit
+    // Sweeping closed canyon racing circuit (1.42x grand-prix scale!)
+    const S = 1.42;
     const controlPts = [
-      new THREE.Vector3(0, 0, -40),
-      new THREE.Vector3(0, 0, 90),
-      new THREE.Vector3(55, 0, 175),
-      new THREE.Vector3(165, 0, 175),
-      new THREE.Vector3(230, 0, 95),
-      new THREE.Vector3(185, 0, 5),
-      new THREE.Vector3(245, 0, -95),
-      new THREE.Vector3(175, 0, -180),
-      new THREE.Vector3(60, 0, -165),
-      new THREE.Vector3(5, 0, -115),
+      new THREE.Vector3(0 * S, 0, -40 * S),
+      new THREE.Vector3(0 * S, 0, 90 * S),
+      new THREE.Vector3(55 * S, 0, 175 * S),
+      new THREE.Vector3(165 * S, 0, 175 * S),
+      new THREE.Vector3(230 * S, 0, 95 * S),
+      new THREE.Vector3(185 * S, 0, 5 * S),
+      new THREE.Vector3(245 * S, 0, -95 * S),
+      new THREE.Vector3(175 * S, 0, -180 * S),
+      new THREE.Vector3(60 * S, 0, -165 * S),
+      new THREE.Vector3(5 * S, 0, -115 * S),
     ];
     this.trackCurve = new THREE.CatmullRomCurve3(controlPts, true, 'catmullrom', 0.5);
 
-    const SEGMENTS = 280;
+    const SEGMENTS = 340;
     this.trackSamples = [];
     this.trackTangents = [];
     for (let i = 0; i < SEGMENTS; i++) {
@@ -347,7 +348,7 @@ export class GameWorldController {
       positions.push(pt.x - side.x, 0.06, pt.z - side.z);
       positions.push(pt.x + side.x, 0.06, pt.z + side.z);
       normals.push(0, 1, 0, 0, 1, 0);
-      uvs.push(0, i * 0.42, 1, i * 0.42);
+      uvs.push(0, i * 0.48, 1, i * 0.48);
 
       if (i < SEGMENTS) {
         const a = i * 2;
@@ -379,8 +380,8 @@ export class GameWorldController {
     scene.add(roadMesh);
 
     // Continuous Red & White Brick Guardrails along BOTH edges (fast 2-draw-call InstancedMesh!)
-    const BARRIER_SEGMENTS = 180;
-    const barrierGeo = new THREE.BoxGeometry(1.4, 1.45, 7.2);
+    const BARRIER_SEGMENTS = 240;
+    const barrierGeo = new THREE.BoxGeometry(1.5, 1.55, 8.2);
     const barrierRedMat = new THREE.MeshStandardMaterial({ color: 0xd92626, roughness: 0.42 });
     const barrierWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.42 });
     const redInst = new THREE.InstancedMesh(barrierGeo, barrierRedMat, BARRIER_SEGMENTS);
@@ -393,7 +394,7 @@ export class GameWorldController {
     const dummy = new THREE.Object3D();
     let rIdx = 0;
     let wIdx = 0;
-    const railOffset = this.trackHalfWidth + 1.35;
+    const railOffset = this.trackHalfWidth + 1.4;
 
     for (let i = 0; i < BARRIER_SEGMENTS; i++) {
       const t = i / BARRIER_SEGMENTS;
@@ -404,7 +405,7 @@ export class GameWorldController {
       const heading = Math.atan2(tan.x, tan.z);
 
       for (const sign of [-1, 1]) {
-        dummy.position.set(pt.x + sideX * railOffset * sign, 0.72, pt.z + sideZ * railOffset * sign);
+        dummy.position.set(pt.x + sideX * railOffset * sign, 0.77, pt.z + sideZ * railOffset * sign);
         dummy.rotation.set(0, heading, 0);
         dummy.updateMatrix();
         if ((i + (sign > 0 ? 1 : 0)) % 2 === 0 && rIdx < BARRIER_SEGMENTS) {
@@ -443,20 +444,20 @@ export class GameWorldController {
     const chevronMat = new THREE.MeshBasicMaterial({ map: chevronTex, side: THREE.DoubleSide });
     const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
 
-    for (let i = 0; i < SEGMENTS; i += 8) {
-      const prevT = this.trackTangents[(i - 4 + SEGMENTS) % SEGMENTS];
-      const nextT = this.trackTangents[(i + 4) % SEGMENTS];
+    for (let i = 0; i < SEGMENTS; i += 10) {
+      const prevT = this.trackTangents[(i - 5 + SEGMENTS) % SEGMENTS];
+      const nextT = this.trackTangents[(i + 5) % SEGMENTS];
       const turn = prevT.x * nextT.z - prevT.z * nextT.x;
       if (Math.abs(turn) > 0.14) {
         const pt = this.trackSamples[i];
         const tan = this.trackTangents[i];
         const outerSign = turn > 0 ? 1 : -1;
-        const distOut = this.trackHalfWidth + 3.4;
+        const distOut = this.trackHalfWidth + 3.6;
         const board = new THREE.Group();
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.8, 0.45), postMat);
-        post.position.y = 1.9;
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.6), chevronMat);
-        sign.position.y = 3.6;
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.0, 0.45), postMat);
+        post.position.y = 2.0;
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 2.8), chevronMat);
+        sign.position.y = 3.8;
         board.add(post, sign);
         board.position.set(pt.x + -tan.z * distOut * outerSign, 0, pt.z + tan.x * distOut * outerSign);
         board.rotation.y = Math.atan2(tan.x, tan.z) + (outerSign > 0 ? Math.PI * 0.65 : -Math.PI * 0.65);
@@ -472,17 +473,17 @@ export class GameWorldController {
       side: THREE.DoubleSide,
     });
     const arrowShape = new THREE.Shape();
-    arrowShape.moveTo(0, 2.4);
-    arrowShape.lineTo(2.4, -0.6);
-    arrowShape.lineTo(1.2, -0.6);
-    arrowShape.lineTo(0, 0.9);
-    arrowShape.lineTo(-1.2, -0.6);
-    arrowShape.lineTo(-2.4, -0.6);
+    arrowShape.moveTo(0, 2.8);
+    arrowShape.lineTo(2.8, -0.7);
+    arrowShape.lineTo(1.4, -0.7);
+    arrowShape.lineTo(0, 1.0);
+    arrowShape.lineTo(-1.4, -0.7);
+    arrowShape.lineTo(-2.8, -0.7);
     arrowShape.closePath();
     const arrowGeo = new THREE.ShapeGeometry(arrowShape);
     arrowGeo.rotateX(Math.PI / 2);
 
-    for (let i = 6; i < SEGMENTS; i += 18) {
+    for (let i = 6; i < SEGMENTS; i += 20) {
       const pt = this.trackSamples[i];
       const tan = this.trackTangents[i];
       const arrow = new THREE.Mesh(arrowGeo, roadArrowMat);
@@ -509,7 +510,7 @@ export class GameWorldController {
     for (const t of rampTs) {
       const pt = this.trackCurve.getPointAt(t);
       const tan = this.trackCurve.getTangentAt(t);
-      this.createRamp(scene, pt.x, pt.z, Math.atan2(tan.x, tan.z), 9.5, 11.5, 2.8);
+      this.createRamp(scene, pt.x, pt.z, Math.atan2(tan.x, tan.z), 12.5, 14.0, 3.2);
     }
 
     // Brick-built Red Rock Canyon Mesas & Buttes framing the circuit!
@@ -519,16 +520,16 @@ export class GameWorldController {
     const mats = [mesaMat1, mesaMat2, mesaMat3];
 
     const mesaSpecs = [
-      { x: -68, z: 65, w: 36, h: 38, d: 34 },
-      { x: -62, z: -60, w: 32, h: 28, d: 38 },
-      { x: 115, z: 75, w: 34, h: 42, d: 30 },
-      { x: 110, z: -55, w: 38, h: 36, d: 36 },
-      { x: 292, z: 160, w: 46, h: 52, d: 44 },
-      { x: 315, z: -25, w: 42, h: 46, d: 48 },
-      { x: 275, z: -230, w: 48, h: 40, d: 38 },
-      { x: -12, z: 230, w: 50, h: 48, d: 38 },
-      { x: 125, z: 250, w: 44, h: 36, d: 34 },
-      { x: 65, z: -245, w: 46, h: 44, d: 36 },
+      { x: -72 * S, z: 65 * S, w: 42, h: 44, d: 38 },
+      { x: -66 * S, z: -60 * S, w: 38, h: 34, d: 42 },
+      { x: 112 * S, z: 75 * S, w: 40, h: 48, d: 34 },
+      { x: 108 * S, z: -55 * S, w: 44, h: 42, d: 40 },
+      { x: 295 * S, z: 160 * S, w: 52, h: 58, d: 50 },
+      { x: 318 * S, z: -25 * S, w: 48, h: 52, d: 54 },
+      { x: 278 * S, z: -232 * S, w: 54, h: 46, d: 44 },
+      { x: -12 * S, z: 232 * S, w: 56, h: 54, d: 44 },
+      { x: 125 * S, z: 252 * S, w: 50, h: 42, d: 40 },
+      { x: 65 * S, z: -248 * S, w: 52, h: 50, d: 42 },
     ];
 
     for (const m of mesaSpecs) {
@@ -646,8 +647,8 @@ export class GameWorldController {
     const enableLights = this.engine.getQuality() === 'ultra';
 
     // 6-car staggered starting grid (player starts 6th for thrilling overtakes!)
-    const gridSlots = [0.992, 0.985, 0.978, 0.971, 0.964, 0.957];
-    const laneOffsets = [-3.6, 3.6, -3.6, 3.6, -3.6, 3.6];
+    const gridSlots = [0.993, 0.987, 0.981, 0.975, 0.969, 0.963];
+    const laneOffsets = [-6.0, 6.0, -6.0, 6.0, -6.0, 6.0];
 
     // Spawn 5 rivals (prioritizing other family/kid custom vehicles first!)
     for (let idx = 0; idx < 5; idx++) {
@@ -1152,7 +1153,7 @@ export class GameWorldController {
     const lookAheadT = (v.splineT + 0.042) % 1;
     const targetPt = this.trackCurve.getPointAt(lookAheadT);
     const tan = this.trackCurve.getTangentAt(lookAheadT).normalize();
-    const laneOffset = ((idx % 3) - 1) * 4.4;
+    const laneOffset = ((idx % 3) - 1) * 7.0;
     targetPt.x += -tan.z * laneOffset;
     targetPt.z += tan.x * laneOffset;
 
@@ -1925,9 +1926,9 @@ export class GameWorldController {
     ctx.fill();
 
     if (this.mode === 'race' && this.trackSamples.length > 0) {
-      // Fit track bounds into canvas
-      const mapX = (x: number) => 16 + ((x + 30) / 305) * (w - 32);
-      const mapY = (z: number) => 16 + ((z + 205) / 410) * (h - 32);
+      // Fit expanded 1.42x track bounds into canvas
+      const mapX = (x: number) => 16 + ((x + 45) / 435) * (w - 32);
+      const mapY = (z: number) => 16 + ((z + 290) / 580) * (h - 32);
 
       ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
       ctx.lineWidth = 6;
